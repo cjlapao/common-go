@@ -1,2 +1,2 @@
-# common-go
-GoLang common modules to use in projects
+# markdown-common
+Markdown common set of tools to use on the Golanf projects
