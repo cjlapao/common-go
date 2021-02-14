@@ -11,10 +11,13 @@ import (
 
 // Version Entity
 type Version struct {
-	Major int
-	Minor int
-	Build int
-	Rev   int
+	Name    string
+	Author  string
+	License string
+	Major   int
+	Minor   int
+	Build   int
+	Rev     int
 }
 
 // FormatedVersion Entity
@@ -44,6 +47,7 @@ func Get(v ...int) *Version {
 		Build: 0,
 		Rev:   0,
 	}
+
 	for i, versionSegment := range v {
 		switch i {
 		case 0:
@@ -69,17 +73,31 @@ func (v *Version) String() string {
 func (v *Version) PrintAnsiHeader() {
 	fmt.Printf("********************************************************************************\n")
 	fmt.Printf("*                                                                              *\n")
-	fmt.Printf("*                     Carlos Http Load Tester Tool %v                     *\n", strcolor.GetColorString(strcolor.BrightYellow, v.String()))
+	if v.Name != "" {
+		name := v.generateMiddle(fmt.Sprintf("%v %v", v.Name, strcolor.GetColorString(strcolor.BrightYellow, v.String())))
+		fmt.Printf("*%v*\n", name)
+	}
 	fmt.Printf("*                                                                              *\n")
-	fmt.Printf("*  Author:  Carlos Lapao                                                       *\n")
-	fmt.Printf("*  License: MIT                                                                *\n")
+	if v.Author != "" {
+		fmt.Printf("*%v*\n", v.generateLeft(fmt.Sprintf(" Author: %v", v.Author)))
+	}
+	if v.License != "" {
+		fmt.Printf("*%v*\n", v.generateLeft(fmt.Sprintf("License: %v ", v.License)))
+	}
 	fmt.Printf("********************************************************************************\n")
 	fmt.Println("")
 }
 
 // PrintHeader Prints an Application Version simple text header
 func (v *Version) PrintHeader() {
-	fmt.Println("Ivanti HTTP Load Tester utility to test services capacity")
+	header := ""
+	if v.Name != "" {
+		header = fmt.Sprintf("%v %v", v.Name, strcolor.GetColorString(strcolor.BrightYellow, v.String()))
+	} else {
+		header = fmt.Sprintf("Version %v", strcolor.GetColorString(strcolor.BrightYellow, v.String()))
+	}
+
+	fmt.Printf("%v\n", header)
 	fmt.Println("")
 }
 
@@ -100,4 +118,87 @@ func (v *Version) PrintVersion(format int) interface{} {
 		jsonString, _ := json.MarshalIndent(formatedVersion, "", "  ")
 		return string(jsonString)
 	}
+}
+
+func (v *Version) generateEmpty(value int) string {
+	result := ""
+	for i := 0; i < value; i++ {
+		result += " "
+	}
+	return result
+}
+
+func (v *Version) generateMiddle(value string) string {
+	if value != "" {
+		emptyCount := 0
+		if len(value) < 78 {
+			emptyCount = (78 - len(value)) / 2
+		}
+
+		if emptyCount > 0 {
+			emptySpace := v.generateEmpty(emptyCount)
+			value = fmt.Sprintf("%v%v%v", emptySpace, value, emptySpace)
+			if len(value) < 78 {
+				emptySpace = v.generateEmpty(78 - len(value))
+				value += emptySpace
+			}
+			if len(value) > 78 {
+				value = value[:78]
+			}
+		}
+
+		return value
+	}
+
+	return ""
+}
+
+func (v *Version) generateLeft(value string) string {
+	if value != "" {
+		emptyCount := 0
+		if len(value) < 78 {
+			emptyCount = (78 - len(value))
+		}
+
+		if emptyCount > 0 {
+			emptySpace := v.generateEmpty(emptyCount)
+			value = fmt.Sprintf(" %v%v", value, emptySpace)
+			if len(value) < 78 {
+				emptySpace = v.generateEmpty(78 - len(value))
+				value += emptySpace
+			}
+			if len(value) > 78 {
+				value = value[:78]
+			}
+		}
+
+		return value
+	}
+
+	return ""
+}
+
+func (v *Version) generateRight(value string) string {
+	if value != "" {
+		emptyCount := 0
+		if len(value) < 78 {
+			emptyCount = (78 - len(value))
+		}
+
+		if emptyCount > 0 {
+			emptySpace := v.generateEmpty(emptyCount)
+			value = fmt.Sprintf("%v%v ", emptySpace, value)
+			if len(value) < 78 {
+				emptySpace = v.generateEmpty(78 - len(value))
+				value += emptySpace
+			}
+			if len(value) > 78 {
+				value = value[:78]
+			}
+		}
+
+		return value
+	}
+
+	return ""
 }
