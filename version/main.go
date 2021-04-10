@@ -162,7 +162,7 @@ func (v *Version) generateLeft(value string) string {
 
 		if emptyCount > 0 {
 			emptySpace := v.generateEmpty(emptyCount)
-			value = fmt.Sprintf(" %v%v", value, emptySpace)
+			value = fmt.Sprintf("%v%v", value, emptySpace)
 			if len(value) < 78 {
 				emptySpace = v.generateEmpty(78 - len(value))
 				value += emptySpace
@@ -187,7 +187,7 @@ func (v *Version) generateRight(value string) string {
 
 		if emptyCount > 0 {
 			emptySpace := v.generateEmpty(emptyCount)
-			value = fmt.Sprintf("%v%v ", emptySpace, value)
+			value = fmt.Sprintf("%v%v", emptySpace, value)
 			if len(value) < 78 {
 				emptySpace = v.generateEmpty(78 - len(value))
 				value += emptySpace

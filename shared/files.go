@@ -1,4 +1,4 @@
-package bootstrap
+package shared
 
 import (
 	"log"
