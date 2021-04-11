@@ -210,7 +210,7 @@ func (l *Logger) LogError(message error) {
 	if l.LogLevel >= Error {
 		if message != nil {
 			for _, logger := range l.Loggers {
-				logger.LogError(message)
+				logger.Error(message.Error())
 			}
 		}
 	}
