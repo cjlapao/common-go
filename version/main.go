@@ -74,7 +74,7 @@ func (v *Version) PrintAnsiHeader() {
 	fmt.Printf("********************************************************************************\n")
 	fmt.Printf("*                                                                              *\n")
 	if v.Name != "" {
-		name := v.generateMiddle(fmt.Sprintf("%v %v", v.Name, strcolor.GetColorString(strcolor.BrightYellow, v.String())))
+		name := v.generateMiddle(fmt.Sprintf("%v %v", v.Name, v.String()))
 		fmt.Printf("*%v*\n", name)
 	}
 	fmt.Printf("*                                                                              *\n")
@@ -82,7 +82,7 @@ func (v *Version) PrintAnsiHeader() {
 		fmt.Printf("*%v*\n", v.generateLeft(fmt.Sprintf(" Author: %v", v.Author)))
 	}
 	if v.License != "" {
-		fmt.Printf("*%v*\n", v.generateLeft(fmt.Sprintf("License: %v ", v.License)))
+		fmt.Printf("*%v*\n", v.generateLeft(fmt.Sprintf(" License: %v ", v.License)))
 	}
 	fmt.Printf("********************************************************************************\n")
 	fmt.Println("")
