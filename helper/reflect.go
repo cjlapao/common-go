@@ -5,5 +5,16 @@ import (
 )
 
 func IsNilOrEmpty(value interface{}) bool {
-	return reflect.DeepEqual(value, reflect.Zero(reflect.TypeOf(value)).Interface())
+	typeName := reflect.ValueOf(value).Kind().String()
+
+	switch typeName {
+	case "string":
+		return reflect.DeepEqual(value, reflect.Zero(reflect.TypeOf(value)).Interface())
+	case "struct":
+		return reflect.DeepEqual(value, reflect.Zero(reflect.TypeOf(value)).Interface())
+	case "invalid":
+		return true
+	default:
+		return false
+	}
 }
