@@ -2,6 +2,7 @@ package executionctx
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"testing"
 
@@ -287,4 +288,253 @@ func TestClearEmptiesVault(t *testing.T) {
 	assert.NotNilf(t, config, "Config service should not be nil")
 	assert.Equalf(t, "bar", keyValue, "Key value should be \"bar\"")
 	assert.Nilf(t, keyValueAfterClear, "Key value should have been clear")
+}
+
+func TestGetString_ReturnCorrectValue(t *testing.T) {
+	//Arrange
+	var tests = []struct {
+		varName       string
+		value         interface{}
+		expectedValue string
+	}{
+		{"someString", "foo", "foo"},
+		{"someInt", 1, "1"},
+		{"someBool", true, "true"},
+		{"someStruct", helper.TestStructure{TestString: "someMoreString"}, "{someMoreString false 0}"},
+	}
+
+	// Act on table
+	for _, tt := range tests {
+		testName := fmt.Sprintf("Getting String Return Correct Value -> %v,%v", tt.value, tt.varName)
+		t.Run(testName, func(t *testing.T) {
+			config := NewConfigService()
+			config.UpsertKey(tt.varName, tt.value)
+
+			// act
+			keyValue := config.GetString(tt.varName)
+
+			assert.Equal(t, tt.expectedValue, keyValue)
+		})
+	}
+}
+
+func TestGetString_WithNotFoundValue_ReturnEmptyString(t *testing.T) {
+	//Arrange
+	config := NewConfigService()
+
+	// act
+	keyValue := config.GetString("notFound")
+
+	assert.Equal(t, "", keyValue)
+}
+
+func TestGetString_WithEmptyKey_ReturnEmptyString(t *testing.T) {
+	//Arrange
+	config := NewConfigService()
+
+	// act
+	keyValue := config.GetString("")
+
+	assert.Equal(t, "", keyValue)
+}
+
+func TestGetInt_ReturnCorrectValue(t *testing.T) {
+	//Arrange
+	var tests = []struct {
+		varName       string
+		value         interface{}
+		expectedValue int
+	}{
+		{"someString", "foo", 0},
+		{"someInt", 1, 1},
+		{"someFloat", 1.3, 0},
+		{"someBool", true, 0},
+		{"someStruct", helper.TestStructure{TestString: "someMoreString"}, 0},
+	}
+
+	// Act on table
+	for _, tt := range tests {
+		testName := fmt.Sprintf("Getting Int Return Correct Value -> %v,%v", tt.value, tt.varName)
+		t.Run(testName, func(t *testing.T) {
+			config := NewConfigService()
+			config.UpsertKey(tt.varName, tt.value)
+
+			// act
+			keyValue := config.GetInt(tt.varName)
+
+			assert.Equal(t, tt.expectedValue, keyValue)
+		})
+	}
+}
+
+func TestGetInt_WithNotFoundValue_ReturnEmptyString(t *testing.T) {
+	//Arrange
+	config := NewConfigService()
+
+	// act
+	keyValue := config.GetInt("notFound")
+
+	assert.Equal(t, 0, keyValue)
+}
+
+func TestGetInt_WithEmptyKey_ReturnEmptyString(t *testing.T) {
+	//Arrange
+	config := NewConfigService()
+
+	// act
+	keyValue := config.GetInt("")
+
+	assert.Equal(t, 0, keyValue)
+}
+
+func TestGetBool_ReturnCorrectValue(t *testing.T) {
+	//Arrange
+	var tests = []struct {
+		varName       string
+		value         interface{}
+		expectedValue bool
+	}{
+		{"someString", "foo", false},
+		{"someBoolFalseString", "f", false},
+		{"someBoolFalseString1", "F", false},
+		{"someBoolFalseString2", "false", false},
+		{"someBoolTrueString", "t", true},
+		{"someBooltrueString1", "T", true},
+		{"someBoolTrueString2", "true", true},
+		{"someInt", 1, true},
+		{"someFalseInt", 0, false},
+		{"someBool", true, true},
+		{"someStruct", helper.TestStructure{TestString: "someMoreString"}, false},
+	}
+
+	// Act on table
+	for _, tt := range tests {
+		testName := fmt.Sprintf("Getting Bool Return Correct Value -> %v,%v", tt.value, tt.varName)
+		t.Run(testName, func(t *testing.T) {
+			config := NewConfigService()
+			config.UpsertKey(tt.varName, tt.value)
+
+			// act
+			keyValue := config.GetBool(tt.varName)
+
+			assert.Equal(t, tt.expectedValue, keyValue)
+		})
+	}
+}
+
+func TestGetBool_WithNotFoundValue_ReturnFalse(t *testing.T) {
+	//Arrange
+	config := NewConfigService()
+
+	// act
+	keyValue := config.GetBool("notFound")
+
+	assert.Equal(t, false, keyValue)
+}
+
+func TestGetBool_WithEmptyKey_ReturnFalse(t *testing.T) {
+	//Arrange
+	config := NewConfigService()
+
+	// act
+	keyValue := config.GetBool("")
+
+	assert.Equal(t, false, keyValue)
+}
+
+func TestGetFloat_ReturnCorrectValue(t *testing.T) {
+	//Arrange
+	var tests = []struct {
+		varName       string
+		value         interface{}
+		expectedValue float64
+	}{
+		{"someString", "foo", 0},
+		{"someInt", 1, 1},
+		{"someFloat", 1.3, 1.3},
+		{"someBool", true, 0},
+		{"someStruct", helper.TestStructure{TestString: "someMoreString"}, 0},
+	}
+
+	// Act on table
+	for _, tt := range tests {
+		testName := fmt.Sprintf("Getting Int Return Correct Value -> %v,%v", tt.value, tt.varName)
+		t.Run(testName, func(t *testing.T) {
+			config := NewConfigService()
+			config.UpsertKey(tt.varName, tt.value)
+
+			// act
+			keyValue := config.GetFloat(tt.varName)
+
+			assert.Equal(t, tt.expectedValue, keyValue)
+		})
+	}
+}
+
+func TestGeFloat_WithNotFoundValue_ReturnZero(t *testing.T) {
+	//Arrange
+	config := NewConfigService()
+
+	// act
+	keyValue := config.GetFloat("notFound")
+
+	assert.Equal(t, float64(0), keyValue)
+}
+
+func TestGetFloat_WithEmptyKey_ReturnZero(t *testing.T) {
+	//Arrange
+	config := NewConfigService()
+
+	// act
+	keyValue := config.GetFloat("")
+
+	assert.Equal(t, float64(0), keyValue)
+}
+
+func TestGetBase64_ReturnCorrectValue(t *testing.T) {
+	//Arrange
+	var tests = []struct {
+		varName       string
+		value         interface{}
+		expectedValue string
+	}{
+		{"someString", "Zm9v", "foo"},
+		{"someError", "1aaaaaZm9v", ""},
+		{"someInt", 1, ""},
+		{"someStruct", helper.TestStructure{TestString: "someMoreString"}, ""},
+	}
+
+	// Act on table
+	for _, tt := range tests {
+		testName := fmt.Sprintf("Getting String Return Correct Value -> %v,%v", tt.value, tt.varName)
+		t.Run(testName, func(t *testing.T) {
+			config := NewConfigService()
+			config.UpsertKey(tt.varName, tt.value)
+
+			// act
+			keyValue := config.GetBase64(tt.varName)
+
+			assert.Equal(t, tt.expectedValue, keyValue)
+		})
+	}
+}
+
+func TestGetBase64_WithNotFoundValue_ReturnEmptyString(t *testing.T) {
+	//Arrange
+	config := NewConfigService()
+
+	// act
+	keyValue := config.GetBase64("notFound")
+
+	assert.Equal(t, "", keyValue)
+}
+
+func TestGetBase64_WithEmptyKey_ReturnEmptyString(t *testing.T) {
+	//Arrange
+	config := NewConfigService()
+
+	// act
+	keyValue := config.GetBase64("")
+
+	assert.Equal(t, "", keyValue)
 }

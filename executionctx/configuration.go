@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/cjlapao/common-go/guard"
+	"github.com/cjlapao/common-go/security"
 )
 
 var vault = make(map[string]interface{})
@@ -87,6 +89,74 @@ func (c *Configuration) Get(key string) interface{} {
 	value = c.getFromEnvironment(key)
 	if value == "" {
 		value = c.getFromVault(key)
+	}
+
+	return value
+}
+
+func (c *Configuration) GetString(key string) string {
+	isKeyEmpty := guard.EmptyOrNil(key)
+	if isKeyEmpty == nil {
+		value := c.Get(key)
+		if value == nil {
+			return ""
+		}
+		return fmt.Sprint(value)
+	}
+	return ""
+}
+
+func (c *Configuration) GetInt(key string) int {
+	isKeyEmpty := guard.EmptyOrNil(key)
+	if isKeyEmpty == nil {
+		value, err := strconv.Atoi(fmt.Sprint(c.Get(key)))
+		if err != nil {
+			return 0
+		}
+
+		return value
+	}
+
+	return 0
+}
+
+func (c *Configuration) GetBool(key string) bool {
+	isKeyEmpty := guard.EmptyOrNil(key)
+	if isKeyEmpty == nil {
+		value, err := strconv.ParseBool(fmt.Sprint(c.Get(key)))
+		if err != nil {
+			return false
+		}
+
+		return value
+	}
+
+	return false
+}
+
+func (c *Configuration) GetFloat(key string) float64 {
+	isKeyEmpty := guard.EmptyOrNil(key)
+	if isKeyEmpty == nil {
+		value, err := strconv.ParseFloat(fmt.Sprint(c.Get(key)), 64)
+		if err != nil {
+			return value
+		}
+
+		return value
+	}
+
+	return 0
+}
+
+func (c *Configuration) GetBase64(key string) string {
+	isKeyEmpty := guard.EmptyOrNil(key)
+	if isKeyEmpty != nil {
+		return ""
+	}
+
+	value, err := security.DecodeBase64String(c.GetString(key))
+	if err != nil {
+		return ""
 	}
 
 	return value

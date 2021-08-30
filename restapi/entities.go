@@ -1,4 +1,4 @@
-package controller
+package restapi
 
 // LoginRequest entity
 type LoginRequest struct {
@@ -27,4 +27,10 @@ type User struct {
 	FirstName string `json:"firstName" bson:"firstName"`
 	LastName  string `json:"lastName" bson:"lastName"`
 	Password  string `json:"password" bson:"password"`
+}
+
+type DefaultHomepage struct {
+	CorrelationID string `json:"id" bson:"_id" yaml:"id"`
+	Timestamp     string `json:"timestamp" bson:"timestamp" yaml:"timestamp"`
+	Message       string `json:"message" bson:"message" yaml:"message"`
 }
