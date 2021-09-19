@@ -25,6 +25,14 @@ func (o OperatingSystem) String() string {
 }
 
 // GetOperatingSystem returns the operating system
+/*
+Get the operating system name and return it as an OperatingSystem constant.
+
+Args:
+	None
+Returns:
+	The operating system.
+*/
 func GetOperatingSystem() OperatingSystem {
 	os := runtime.GOOS
 	switch strings.ToLower(os) {
