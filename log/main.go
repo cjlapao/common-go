@@ -9,6 +9,7 @@ import (
 
 // Log Interface
 type Log interface {
+	UseTimestamp(value bool)
 	Log(format string, level Level, words ...string)
 	LogHighlight(format string, level Level, highlightColor strcolor.ColorCode, words ...string)
 	Info(format string, words ...string)
@@ -33,6 +34,7 @@ type Logger struct {
 	Loggers       []Log
 	LogLevel      Level
 	HighlighColor strcolor.ColorCode
+	UseTimestamp  bool
 }
 
 var globalLogger *Logger
@@ -89,6 +91,30 @@ func (l *Logger) AddCmdLogger() {
 
 	if !found {
 		l.Loggers = append(l.Loggers, new(CmdLogger))
+	}
+}
+
+func (l *Logger) AddCmdLoggerWithTimestamp() {
+	found := false
+	for _, logger := range l.Loggers {
+		xType := fmt.Sprintf("%T", logger)
+		if xType == "CmdLogger" {
+			found = true
+			logger.UseTimestamp(true)
+			break
+		}
+	}
+
+	if !found {
+		logger := new(CmdLogger)
+		logger.UseTimestamp(true)
+		l.Loggers = append(l.Loggers, logger)
+	}
+}
+
+func (l *Logger) EnableTimestamp() {
+	for _, logger := range l.Loggers {
+		logger.UseTimestamp(true)
 	}
 }
 
