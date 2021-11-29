@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    name: Build
+    name: PR Build and Test
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
