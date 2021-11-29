@@ -22,7 +22,7 @@ type MongoFactory struct {
 }
 
 // NewFactory Instantiate a new MongoDb Factory
-func NewFactory(connectionString string) MongoFactory {
+func NewFactory(connectionString string) *MongoFactory {
 	factory := MongoFactory{}
 	factory.DatabaseCxt = &database.DatabaseCtx{
 		ConnectionString: connectionString,
@@ -30,7 +30,7 @@ func NewFactory(connectionString string) MongoFactory {
 	factory.Logger = log.Get()
 	factory.GetClient()
 	factory.GetContext()
-	return factory
+	return &factory
 }
 
 func (f *MongoFactory) WithDatabase(databaseName string) *MongoFactory {
