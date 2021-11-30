@@ -12,13 +12,13 @@ import (
 
 	"net/http"
 
+	"github.com/cjlapao/common-go/controllers"
 	"github.com/cjlapao/common-go/executionctx"
 	"github.com/cjlapao/common-go/helper"
+	"github.com/cjlapao/common-go/identity"
 	logger "github.com/cjlapao/common-go/log"
 	"github.com/gorilla/mux"
 )
-
-type Controller func(w http.ResponseWriter, r *http.Request)
 
 type HttpListenerOptions struct {
 	ApiPrefix               string
@@ -35,12 +35,13 @@ type HttpListenerOptions struct {
 
 // HttpListener HttpListener structure
 type HttpListener struct {
-	Router      *mux.Router
-	Services    *executionctx.ServiceProvider
-	Logger      *logger.Logger
-	Options     *HttpListenerOptions
-	Controllers []Controller
-	Servers     []*http.Server
+	Router          *mux.Router
+	Services        *executionctx.ServiceProvider
+	Logger          *logger.Logger
+	Options         *HttpListenerOptions
+	Controllers     []controllers.Controller
+	DefaultAdapters []controllers.Adapter
+	Servers         []*http.Server
 }
 
 var globalHttpListener *HttpListener
@@ -64,7 +65,8 @@ func NewHttpListener() *HttpListener {
 
 	listener.Logger = listener.Services.Logger
 
-	listener.Controllers = make([]Controller, 0)
+	listener.Controllers = make([]controllers.Controller, 0)
+	listener.DefaultAdapters = make([]controllers.Adapter, 0)
 
 	listener.Options = listener.getDefaultConfiguration()
 
@@ -80,54 +82,89 @@ func GetHttpListener() *HttpListener {
 	return NewHttpListener()
 }
 
-func (l *HttpListener) AddAuthentication() *HttpListener {
-	if l.Options.UseAuthBackend {
-		l.Logger.Info("Found MongoDB connection string, enabling MongoDb auth backend...")
-	}
-
-	l.AddController(l.Login, l.Options.ApiPrefix+"/login", "POST")
-	l.AddController(l.Validate, l.Options.ApiPrefix+"/validate", "GET")
-	l.Options.EnableAuthentication = true
-	return l
-}
-
 func (l *HttpListener) AddHealthCheck() *HttpListener {
-	l.AddController(l.Probe, l.Options.ApiPrefix+"/probe", "GET")
-	l.Options.EnableAuthentication = true
+	l.AddController(l.Probe(), l.Options.ApiPrefix+"/probe", "GET")
 	return l
 }
 
 func (l *HttpListener) AddLogger() *HttpListener {
-	l.Router.Use(loggerMiddleware)
-
+	l.DefaultAdapters = append(l.DefaultAdapters, LoggerAdapter())
 	return l
 }
 
 func (l *HttpListener) AddJsonContent() *HttpListener {
-	l.Router.Use(jsonResponseMiddleware)
-
+	l.DefaultAdapters = append(l.DefaultAdapters, JsonContentAdapter())
 	return l
 }
 
 func (l *HttpListener) AddDefaultHomepage() *HttpListener {
-	l.Router.Use(loggerMiddleware)
-
 	return l
 }
 
-func (l *HttpListener) AddController(c Controller, path string, methods ...string) {
-	l.Controllers = append(l.Controllers, c)
-	if len(methods) > 0 {
-		l.Router.HandleFunc(path, c).Methods(methods...)
-	} else {
-		l.Router.HandleFunc(path, c).Methods("GET")
+func (l *HttpListener) WithDefaultAuthentication() *HttpListener {
+	if l.Options.UseAuthBackend {
+		l.Logger.Info("Found MongoDB connection string, enabling MongoDb auth backend...")
 	}
+	defaultAuthControllers := identity.NewDefaultAuthorizationControllers()
+
+	l.AddController(defaultAuthControllers.Login(), l.Options.ApiPrefix+"/login", "POST")
+	l.AddController(defaultAuthControllers.Validate(), l.Options.ApiPrefix+"/validate", "GET")
+	l.DefaultAdapters = append([]controllers.Adapter{identity.EndAuthorizationAdapter()}, l.DefaultAdapters...)
+	l.Options.EnableAuthentication = true
+	return l
+}
+
+func (l *HttpListener) WithAuthentication(context identity.UserContext) *HttpListener {
+	if l.Options.UseAuthBackend {
+		l.Logger.Info("Found MongoDB connection string, enabling MongoDb auth backend...")
+	}
+	defaultAuthControllers := identity.NewAuthorizationControllers(context)
+
+	l.AddController(defaultAuthControllers.Login(), l.Options.ApiPrefix+"/login", "POST")
+	l.AddController(defaultAuthControllers.Validate(), l.Options.ApiPrefix+"/validate", "GET")
+	l.DefaultAdapters = append([]controllers.Adapter{identity.EndAuthorizationAdapter()}, l.DefaultAdapters...)
+	l.Options.EnableAuthentication = true
+	return l
+}
+
+func (l *HttpListener) AddController(c controllers.Controller, path string, methods ...string) {
+	l.Controllers = append(l.Controllers, c)
+	var subRouter *mux.Router
+	if len(methods) > 0 {
+		subRouter = l.Router.Methods(methods...).Subrouter()
+	} else {
+		subRouter = l.Router.Methods("GET").Subrouter()
+	}
+
+	adapters := make([]controllers.Adapter, 0)
+	adapters = append(adapters, l.DefaultAdapters...)
+
+	subRouter.HandleFunc(path, controllers.Adapt(
+		http.HandlerFunc(c),
+		adapters...).ServeHTTP)
+}
+
+func (l *HttpListener) AddAuthorizedController(c controllers.Controller, path string, methods ...string) {
+	l.Controllers = append(l.Controllers, c)
+	var subRouter *mux.Router
+	if len(methods) > 0 {
+		subRouter = l.Router.Methods(methods...).Subrouter()
+	} else {
+		subRouter = l.Router.Methods("GET").Subrouter()
+	}
+	adapters := make([]controllers.Adapter, 0)
+	adapters = append(adapters, l.DefaultAdapters...)
+	adapters = append(adapters, identity.AuthorizationAdapter())
+	subRouter.HandleFunc(path,
+		controllers.Adapt(
+			http.HandlerFunc(c),
+			adapters...).ServeHTTP)
 }
 
 func (l *HttpListener) Start() {
 	l.Logger.Notice("Starting %v Go Rest API v%v", l.Services.Version.Name, l.Services.Version.String())
 
-	quit := make(chan os.Signal)
+	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)
 
 	l.Router.HandleFunc(l.Options.ApiPrefix+"/", defaultHomepageController)
@@ -222,20 +259,6 @@ func defaultHomepageController(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(response)
-}
-
-func jsonResponseMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type", "application/json")
-		next.ServeHTTP(w, r)
-	})
-}
-
-func loggerMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		globalHttpListener.Logger.Info("[%v] %v from %v", r.Method, r.URL.Path, r.Host)
-		next.ServeHTTP(w, r)
-	})
 }
 
 //endregion

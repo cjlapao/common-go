@@ -13,6 +13,7 @@ var contextService *Context
 // Context entity
 type Context struct {
 	Configuration *Configuration
+	User          *UserCtx
 	CorrelationId string
 	Environment   string
 	IsDevelopment bool

@@ -7,7 +7,6 @@ import (
 	"github.com/cjlapao/common-go/database"
 	"github.com/cjlapao/common-go/executionctx"
 	"github.com/cjlapao/common-go/log"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -99,70 +98,20 @@ func (f *MongoFactory) GetDatabase() *mongo.Database {
 	return database
 }
 
-// Find Finds documents in the database
-func (f *MongoFactory) Find(collectionName string, filter bson.D) []*bson.M {
+func (f *MongoFactory) GetCollection(collectionName string) *mongo.Collection {
+	if f.Client == nil {
+		f.Client = f.GetClient()
+	}
 	if f.Database == nil {
-		f.GetDatabase()
+		f.Database = f.GetDatabase()
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-
-	defer cancel()
 
 	collection := f.Database.Collection(collectionName)
-
 	if collection == nil {
+		f.Logger.Error("There was an error getting the collection " + collectionName)
 		return nil
 	}
 
-	cur, err := collection.Find(ctx, filter)
-	if err != nil {
-		f.Logger.LogError(err)
-		return nil
-	}
-	var elements []*bson.M
-	for cur.Next(ctx) {
-		var element bson.M
-		err := cur.Decode(&element)
-		if err != nil {
-			f.Logger.LogError(err)
-			return nil
-		}
-		elements = append(elements, &element)
-	}
-
-	return elements
-}
-
-// InsertOne Inserts one document into the selected collection
-func (f *MongoFactory) InsertOne(collectionName string, element interface{}) *mongo.InsertOneResult {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	collection := f.Database.Collection(collectionName)
-
-	insertResult, err := collection.InsertOne(ctx, element)
-
-	if err != nil {
-		f.Logger.LogError(err)
-		return nil
-	}
-
-	return insertResult
-}
-
-// InsertMany Inserts one document into the selected collection
-func (f *MongoFactory) InsertMany(collectionName string, elements []interface{}) *mongo.InsertManyResult {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	collection := f.Database.Collection(collectionName)
-
-	insertResult, err := collection.InsertMany(ctx, elements)
-
-	if err != nil {
-		f.Logger.LogError(err)
-		return nil
-	}
-
-	return insertResult
+	f.Logger.Debug("Database was retrieved successfully")
+	return collection
 }
