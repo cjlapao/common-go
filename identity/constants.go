@@ -1,5 +1,7 @@
 package identity
 
 const (
-	IdentityCollection = "Identity.User"
+	IdentityUsersCollection      = "Identity.Users"
+	IdentityUserRolesCollection  = "Identity.UserRoles"
+	IdentityUserClaimsCollection = "Identity.UserClaims"
 )
