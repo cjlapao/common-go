@@ -31,10 +31,10 @@ type Log interface {
 
 // Logger Default structure
 type Logger struct {
-	Loggers       []Log
-	LogLevel      Level
-	HighlighColor strcolor.ColorCode
-	UseTimestamp  bool
+	Loggers        []Log
+	LogLevel       Level
+	HighlightColor strcolor.ColorCode
+	UseTimestamp   bool
 }
 
 var globalLogger *Logger
@@ -55,8 +55,8 @@ const (
 func Get() *Logger {
 	if globalLogger == nil {
 		result := Logger{
-			LogLevel:      Info,
-			HighlighColor: strcolor.BrightYellow,
+			LogLevel:       Info,
+			HighlightColor: strcolor.BrightYellow,
 		}
 		result.Loggers = []Log{}
 		result.AddCmdLogger()
@@ -128,7 +128,7 @@ func (l *Logger) Log(format string, level Level, words ...string) {
 // LogHighlight Log information message
 func (l *Logger) LogHighlight(format string, level Level, words ...string) {
 	for _, logger := range l.Loggers {
-		logger.LogHighlight(format, level, l.HighlighColor, words...)
+		logger.LogHighlight(format, level, l.HighlightColor, words...)
 	}
 }
 

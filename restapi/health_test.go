@@ -16,7 +16,7 @@ func TestHealthController(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	handler := http.HandlerFunc(globalHttpListener.Probe)
+	handler := http.HandlerFunc(globalHttpListener.Probe())
 
 	handler.ServeHTTP(rr, req)
 

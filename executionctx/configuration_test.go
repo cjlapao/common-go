@@ -260,7 +260,7 @@ func TestConfigurationProvider_UpsertKeysWithErrorsShouldReturnArray(t *testing.
 	}
 }
 
-func TestNewConfiServiceResetsVault(t *testing.T) {
+func TestNewConfigServiceResetsVault(t *testing.T) {
 	//Arrange
 	config := NewConfigService()
 	config.UpsertKey("foo", "bar")
