@@ -14,6 +14,7 @@ import (
 var logger = log.Get()
 
 type Repository interface {
+	Filter(filter interface{}) []*interface{}
 	Find(fieldName string, value string) []*primitive.M
 	FindOne(fieldName string, value string) *mongo.SingleResult
 	InsertOne(element interface{}) *mongo.InsertOneResult
@@ -40,6 +41,32 @@ func NewRepository(factory *MongoFactory, database string, collection string) Re
 	defaultRepo.Collection = factory.GetCollection(collection)
 
 	return &defaultRepo
+}
+
+func (r *DefaultRepository) Filter(filter interface{}) []*interface{} {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+	if filter == "" {
+		filter = bson.D{{}}
+	}
+	defer cancel()
+	cur, err := r.Collection.Find(ctx, filter)
+	if err != nil {
+		logger.LogError(err)
+		return nil
+	}
+	var elements []*interface{}
+	for cur.Next(ctx) {
+		var element interface{}
+		err := cur.Decode(&element)
+		if err != nil {
+			logger.LogError(err)
+			return nil
+		}
+		elements = append(elements, &element)
+	}
+
+	return elements
 }
 
 func (r *DefaultRepository) Find(fieldName string, value string) []*primitive.M {
