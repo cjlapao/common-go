@@ -3,7 +3,7 @@ package identity
 import (
 	"fmt"
 
-	database "github.com/cjlapao/common-go/database/mongo"
+	"github.com/cjlapao/common-go/database/mongodb"
 	"github.com/cjlapao/common-go/executionctx"
 	"github.com/cjlapao/common-go/helper"
 	"github.com/cjlapao/common-go/security"
@@ -74,14 +74,16 @@ func GetDefaultUsers() []User {
 	return users
 }
 
-func Seed(factory *database.MongoFactory, databaseName string) {
+func Seed(factory *mongodb.MongoFactory, databaseName string) {
 	SeedUsers(factory, databaseName)
 }
 
-func SeedUsers(factory *database.MongoFactory, databaseName string) {
-	repo := database.NewRepository(factory, databaseName, IdentityUsersCollection)
+func SeedUsers(factory *mongodb.MongoFactory, databaseName string) {
+	repo := mongodb.NewRepository(factory, databaseName, IdentityUsersCollection)
 	users := GetDefaultUsers()
 	for _, user := range users {
-		repo.UpsertOne("email", user.Email, user)
+		filter := make(map[string]interface{})
+		filter["email"] = user.Email
+		repo.UpsertOne(filter, user)
 	}
 }

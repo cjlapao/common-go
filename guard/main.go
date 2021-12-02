@@ -49,3 +49,7 @@ func IsFalse(value bool, name ...string) error {
 
 	return nil
 }
+
+func IsNill(value interface{}) bool {
+	return value == nil || reflect.ValueOf(value).IsNil()
+}
