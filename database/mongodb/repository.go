@@ -16,7 +16,7 @@ type Repository interface {
 	FindOne(fieldName string, value string) *mongo.SingleResult
 	InsertOne(element interface{}) *mongo.InsertOneResult
 	InsertMany(elements []interface{}) *mongo.InsertManyResult
-	UpsertOne(filter interface{}, element interface{}) *mongo.UpdateResult
+	UpsertOne(model mongo.UpdateOneModel) *mongo.UpdateResult
 	UpsertMany(filter interface{}, elements []interface{}) *mongo.UpdateResult
 }
 
@@ -47,6 +47,7 @@ func (r *DefaultRepository) Filter(filter interface{}) []*interface{} {
 		filter = bson.D{{}}
 	}
 	defer cancel()
+
 	cur, err := r.Collection.Find(ctx, filter)
 	if err != nil {
 		logger.LogError(err)
@@ -129,17 +130,12 @@ func (r *DefaultRepository) InsertMany(elements []interface{}) *mongo.InsertMany
 	return insertResult
 }
 
-func (r *DefaultRepository) UpsertOne(filter interface{}, element interface{}) *mongo.UpdateResult {
+func (r *DefaultRepository) UpsertOne(model mongo.UpdateOneModel) *mongo.UpdateResult {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if guard.IsNill(filter) {
-		filter = bson.D{{}}
-	}
-
 	options := options.Update().SetUpsert(true)
-	updatePipeline := bson.D{{"$set", element}}
-	updateOneResult, err := r.Collection.UpdateOne(ctx, filter, updatePipeline, options)
+	updateOneResult, err := r.Collection.UpdateOne(ctx, model.Filter, model.Update, options)
 
 	if err != nil {
 		logger.LogError(err)
