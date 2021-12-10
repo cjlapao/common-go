@@ -17,6 +17,7 @@ import (
 	"github.com/cjlapao/common-go/helper"
 	"github.com/cjlapao/common-go/identity"
 	logger "github.com/cjlapao/common-go/log"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
 
@@ -162,6 +163,10 @@ func (l *HttpListener) AddAuthorizedController(c controllers.Controller, path st
 }
 
 func (l *HttpListener) Start() {
+	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With", "authorization", "Authorization", "content-type"})
+	originsOk := handlers.AllowedOrigins([]string{"*"})
+	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
+
 	l.Logger.Notice("Starting %v Go Rest API v%v", l.Services.Version.Name, l.Services.Version.String())
 
 	quit := make(chan os.Signal, 1)
@@ -172,7 +177,7 @@ func (l *HttpListener) Start() {
 	// Creating and starting the http server
 	srv := &http.Server{
 		Addr:    ":" + l.Options.HttpPort,
-		Handler: l.Router,
+		Handler: handlers.CORS(originsOk, headersOk, methodsOk)(l.Router),
 	}
 
 	l.Servers = append(l.Servers, srv)
