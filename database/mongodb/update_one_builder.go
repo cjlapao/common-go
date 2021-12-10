@@ -34,10 +34,11 @@ func (c *UpdateOneBuilder) SetElement(key string, value interface{}) *UpdateOneB
 func (c *UpdateOneBuilder) Encode(element interface{}, ignoredFields ...string) *UpdateOneBuilder {
 	var mapped map[string]interface{}
 	//converting the document to a bson
-	marshalled, err := bson.MarshalExtJSON(element, true, true)
+	marshalled, err := bson.MarshalExtJSON(element, false, true)
 	if err != nil {
 		return nil
 	}
+
 	// Converting the json marshalled element to a map
 	json.Unmarshal(marshalled, &mapped)
 
