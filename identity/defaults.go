@@ -6,8 +6,11 @@ import (
 	"github.com/cjlapao/common-go/database/mongodb"
 	"github.com/cjlapao/common-go/executionctx"
 	"github.com/cjlapao/common-go/helper"
+	"github.com/cjlapao/common-go/log"
 	"github.com/cjlapao/common-go/security"
 )
+
+var logger = log.Get()
 
 func GetDefaultUsers() []User {
 	config := executionctx.GetConfigService()

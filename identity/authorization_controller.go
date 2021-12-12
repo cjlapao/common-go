@@ -47,12 +47,14 @@ func (c *DefaultAuthorizationControllers) Login() controllers.Controller {
 
 		if c.Context == nil {
 			w.WriteHeader(http.StatusUnauthorized)
+			logger.Error("There was an error during loggin, context is null")
 			return
 		}
 		user := c.Context.GetUserByEmail(loginRequestUser.Username)
 
 		if user == nil {
 			w.WriteHeader(http.StatusUnauthorized)
+			logger.Error("There was an error during loggin, user %v was not found", user.Username)
 			return
 		}
 
@@ -60,6 +62,7 @@ func (c *DefaultAuthorizationControllers) Login() controllers.Controller {
 
 		if password != user.Password {
 			w.WriteHeader(http.StatusUnauthorized)
+			logger.Error("There was an error during loggin user %v, password is incorrect", user.Username)
 			return
 		}
 
@@ -68,6 +71,7 @@ func (c *DefaultAuthorizationControllers) Login() controllers.Controller {
 			AccessToken: string(token),
 			Expiring:    expires,
 		}
+		logger.Success("User %v was logged in successfully", user.Username)
 
 		json.NewEncoder(w).Encode(response)
 	}
@@ -87,6 +91,7 @@ func (c *DefaultAuthorizationControllers) Validate() controllers.Controller {
 
 			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode(response)
+			logger.Error("There was an error validating token")
 			return
 		}
 
@@ -99,6 +104,7 @@ func (c *DefaultAuthorizationControllers) Validate() controllers.Controller {
 
 			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode(response)
+			logger.Error("There was an error validating token")
 			return
 		}
 
@@ -106,6 +112,7 @@ func (c *DefaultAuthorizationControllers) Validate() controllers.Controller {
 			AccessToken: token,
 		}
 
+		logger.Success("Token was validated successfully")
 		json.NewEncoder(w).Encode(response)
 	}
 }
