@@ -108,8 +108,8 @@ func (l *HttpListener) WithDefaultAuthentication() *HttpListener {
 	}
 	defaultAuthControllers := identity.NewDefaultAuthorizationControllers()
 
-	l.AddController(defaultAuthControllers.Login(), l.Options.ApiPrefix+"/login", "POST")
-	l.AddController(defaultAuthControllers.Validate(), l.Options.ApiPrefix+"/validate", "GET")
+	l.AddController(defaultAuthControllers.Login(), "/login", "POST")
+	l.AddController(defaultAuthControllers.Validate(), "/validate", "GET")
 	l.DefaultAdapters = append([]controllers.Adapter{identity.EndAuthorizationAdapter()}, l.DefaultAdapters...)
 	l.Options.EnableAuthentication = true
 	return l
@@ -121,8 +121,8 @@ func (l *HttpListener) WithAuthentication(context identity.UserContext) *HttpLis
 	}
 	defaultAuthControllers := identity.NewAuthorizationControllers(context)
 
-	l.AddController(defaultAuthControllers.Login(), l.Options.ApiPrefix+"/login", "POST")
-	l.AddController(defaultAuthControllers.Validate(), l.Options.ApiPrefix+"/validate", "GET")
+	l.AddController(defaultAuthControllers.Login(), "/login", "POST")
+	l.AddController(defaultAuthControllers.Validate(), "/validate", "GET")
 	l.DefaultAdapters = append([]controllers.Adapter{identity.EndAuthorizationAdapter()}, l.DefaultAdapters...)
 	l.Options.EnableAuthentication = true
 	return l
@@ -140,6 +140,9 @@ func (l *HttpListener) AddController(c controllers.Controller, path string, meth
 	adapters := make([]controllers.Adapter, 0)
 	adapters = append(adapters, l.DefaultAdapters...)
 
+	if l.Options.ApiPrefix != "" {
+		path = l.Options.ApiPrefix + path
+	}
 	subRouter.HandleFunc(path, controllers.Adapt(
 		http.HandlerFunc(c),
 		adapters...).ServeHTTP)
@@ -156,6 +159,11 @@ func (l *HttpListener) AddAuthorizedController(c controllers.Controller, path st
 	adapters := make([]controllers.Adapter, 0)
 	adapters = append(adapters, l.DefaultAdapters...)
 	adapters = append(adapters, identity.AuthorizationAdapter())
+
+	if l.Options.ApiPrefix != "" {
+		path = l.Options.ApiPrefix + path
+	}
+
 	subRouter.HandleFunc(path,
 		controllers.Adapt(
 			http.HandlerFunc(c),
