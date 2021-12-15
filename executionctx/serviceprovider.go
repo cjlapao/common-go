@@ -23,7 +23,7 @@ func NewServiceProvider() *ServiceProvider {
 	globalProviderContainer.Context = GetContext()
 	globalProviderContainer.Logger = log.Get()
 	globalProviderContainer.Version = version.Get()
-
+	globalProviderContainer.Logger.UseTimestamp = true
 	return globalProviderContainer
 }
 

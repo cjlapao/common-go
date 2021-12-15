@@ -173,7 +173,7 @@ func (l *HttpListener) AddAuthorizedController(c controllers.Controller, path st
 func (l *HttpListener) Start() {
 	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With", "authorization", "Authorization", "content-type"})
 	originsOk := handlers.AllowedOrigins([]string{"*"})
-	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
+	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"})
 
 	l.Logger.Notice("Starting %v Go Rest API v%v", l.Services.Version.Name, l.Services.Version.String())
 
