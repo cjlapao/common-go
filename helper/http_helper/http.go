@@ -1,4 +1,4 @@
-package helper
+package http_helper
 
 import (
 	"errors"
@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/cjlapao/common-go/helper"
 	"github.com/cjlapao/common-go/language"
 )
 
@@ -15,7 +16,7 @@ import (
 func DownloadFile(url string, filepath string) error {
 	resp, err := http.Get(url)
 
-	CheckError(err)
+	helper.CheckError(err)
 
 	if resp.StatusCode != http.StatusOK {
 		return errors.New("Error downloading file from " + url + " with code " + fmt.Sprint(resp.StatusCode))
@@ -25,7 +26,7 @@ func DownloadFile(url string, filepath string) error {
 
 	out, err := os.Create(filepath)
 
-	CheckError(err)
+	helper.CheckError(err)
 
 	defer out.Close()
 

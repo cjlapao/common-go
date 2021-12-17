@@ -1,26 +1,23 @@
-package database
+package mongodb
 
 import (
 	"context"
 	"time"
 
-	"github.com/cjlapao/common-go/log"
+	"github.com/cjlapao/common-go/guard"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var logger = log.Get()
-
 type Repository interface {
 	Filter(filter interface{}) []*interface{}
-	Find(fieldName string, value string) []*primitive.M
+	Find(fieldName string, value string) []*interface{}
 	FindOne(fieldName string, value string) *mongo.SingleResult
 	InsertOne(element interface{}) *mongo.InsertOneResult
 	InsertMany(elements []interface{}) *mongo.InsertManyResult
-	UpsertOne(filterField string, filterValue string, element interface{}) *mongo.UpdateResult
-	UpsertMany(filterField string, filterValue string, elements []interface{}) *mongo.UpdateResult
+	UpsertOne(model mongo.UpdateOneModel) *mongo.UpdateResult
+	UpsertMany(filter interface{}, elements []interface{}) *mongo.UpdateResult
 }
 
 type DefaultRepository struct {
@@ -50,6 +47,7 @@ func (r *DefaultRepository) Filter(filter interface{}) []*interface{} {
 		filter = bson.D{{}}
 	}
 	defer cancel()
+
 	cur, err := r.Collection.Find(ctx, filter)
 	if err != nil {
 		logger.LogError(err)
@@ -69,7 +67,7 @@ func (r *DefaultRepository) Filter(filter interface{}) []*interface{} {
 	return elements
 }
 
-func (r *DefaultRepository) Find(fieldName string, value string) []*primitive.M {
+func (r *DefaultRepository) Find(fieldName string, value string) []*interface{} {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	defer cancel()
@@ -79,15 +77,15 @@ func (r *DefaultRepository) Find(fieldName string, value string) []*primitive.M 
 		logger.LogError(err)
 		return nil
 	}
-	var elements []*bson.M
+	var elements []*interface{}
 	for cur.Next(ctx) {
-		var element bson.M
+		var element *interface{}
 		err := cur.Decode(&element)
 		if err != nil {
 			logger.LogError(err)
 			return nil
 		}
-		elements = append(elements, &element)
+		elements = append(elements, element)
 	}
 
 	return elements
@@ -132,13 +130,12 @@ func (r *DefaultRepository) InsertMany(elements []interface{}) *mongo.InsertMany
 	return insertResult
 }
 
-func (r *DefaultRepository) UpsertOne(filterField string, filterValue string, element interface{}) *mongo.UpdateResult {
+func (r *DefaultRepository) UpsertOne(model mongo.UpdateOneModel) *mongo.UpdateResult {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	filter := bson.D{{filterField, filterValue}}
+
 	options := options.Update().SetUpsert(true)
-	updatePipeline := bson.D{{"$set", element}}
-	updateOneResult, err := r.Collection.UpdateOne(ctx, filter, updatePipeline, options)
+	updateOneResult, err := r.Collection.UpdateOne(ctx, model.Filter, model.Update, options)
 
 	if err != nil {
 		logger.LogError(err)
@@ -148,10 +145,13 @@ func (r *DefaultRepository) UpsertOne(filterField string, filterValue string, el
 	return updateOneResult
 }
 
-func (r *DefaultRepository) UpsertMany(filterField string, filterValue string, elements []interface{}) *mongo.UpdateResult {
+func (r *DefaultRepository) UpsertMany(filter interface{}, elements []interface{}) *mongo.UpdateResult {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	filter := bson.D{{filterField, filterValue}}
+	if guard.IsNill(filter) {
+		filter = bson.D{{}}
+	}
+
 	options := options.Update().SetUpsert(true)
 
 	updateOneResult, err := r.Collection.UpdateMany(ctx, filter, elements, options)

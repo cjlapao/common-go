@@ -5,9 +5,10 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
+	"strings"
+	"syscall"
 	"time"
 
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"github.com/cjlapao/common-go/helper"
 	"github.com/cjlapao/common-go/identity"
 	logger "github.com/cjlapao/common-go/log"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
 
@@ -35,13 +37,15 @@ type HttpListenerOptions struct {
 
 // HttpListener HttpListener structure
 type HttpListener struct {
-	Router          *mux.Router
-	Services        *executionctx.ServiceProvider
-	Logger          *logger.Logger
-	Options         *HttpListenerOptions
-	Controllers     []controllers.Controller
-	DefaultAdapters []controllers.Adapter
-	Servers         []*http.Server
+	Router            *mux.Router
+	Services          *executionctx.ServiceProvider
+	Logger            *logger.Logger
+	Options           *HttpListenerOptions
+	Controllers       []controllers.Controller
+	DefaultAdapters   []controllers.Adapter
+	Servers           []*http.Server
+	shutdownRequest   chan bool
+	shutdownRequested uint32
 }
 
 var globalHttpListener *HttpListener
@@ -51,9 +55,7 @@ func NewHttpListener() *HttpListener {
 	if globalHttpListener != nil {
 		globalHttpListener = nil
 		if len(globalHttpListener.Servers) > 0 {
-			for _, srv := range globalHttpListener.Servers {
-				srv.Close()
-			}
+			globalHttpListener.shutdownRequest <- true
 		}
 	}
 
@@ -63,6 +65,7 @@ func NewHttpListener() *HttpListener {
 		Servers:  make([]*http.Server, 0),
 	}
 
+	listener.shutdownRequest = make(chan bool)
 	listener.Logger = listener.Services.Logger
 
 	listener.Controllers = make([]controllers.Controller, 0)
@@ -107,8 +110,8 @@ func (l *HttpListener) WithDefaultAuthentication() *HttpListener {
 	}
 	defaultAuthControllers := identity.NewDefaultAuthorizationControllers()
 
-	l.AddController(defaultAuthControllers.Login(), l.Options.ApiPrefix+"/login", "POST")
-	l.AddController(defaultAuthControllers.Validate(), l.Options.ApiPrefix+"/validate", "GET")
+	l.AddController(defaultAuthControllers.Login(), "/login", "POST")
+	l.AddController(defaultAuthControllers.Validate(), "/validate", "GET")
 	l.DefaultAdapters = append([]controllers.Adapter{identity.EndAuthorizationAdapter()}, l.DefaultAdapters...)
 	l.Options.EnableAuthentication = true
 	return l
@@ -120,8 +123,8 @@ func (l *HttpListener) WithAuthentication(context identity.UserContext) *HttpLis
 	}
 	defaultAuthControllers := identity.NewAuthorizationControllers(context)
 
-	l.AddController(defaultAuthControllers.Login(), l.Options.ApiPrefix+"/login", "POST")
-	l.AddController(defaultAuthControllers.Validate(), l.Options.ApiPrefix+"/validate", "GET")
+	l.AddController(defaultAuthControllers.Login(), "/login", "POST")
+	l.AddController(defaultAuthControllers.Validate(), "/validate", "GET")
 	l.DefaultAdapters = append([]controllers.Adapter{identity.EndAuthorizationAdapter()}, l.DefaultAdapters...)
 	l.Options.EnableAuthentication = true
 	return l
@@ -139,6 +142,9 @@ func (l *HttpListener) AddController(c controllers.Controller, path string, meth
 	adapters := make([]controllers.Adapter, 0)
 	adapters = append(adapters, l.DefaultAdapters...)
 
+	if l.Options.ApiPrefix != "" {
+		path = l.Options.ApiPrefix + path
+	}
 	subRouter.HandleFunc(path, controllers.Adapt(
 		http.HandlerFunc(c),
 		adapters...).ServeHTTP)
@@ -155,6 +161,11 @@ func (l *HttpListener) AddAuthorizedController(c controllers.Controller, path st
 	adapters := make([]controllers.Adapter, 0)
 	adapters = append(adapters, l.DefaultAdapters...)
 	adapters = append(adapters, identity.AuthorizationAdapter())
+
+	if l.Options.ApiPrefix != "" {
+		path = l.Options.ApiPrefix + path
+	}
+
 	subRouter.HandleFunc(path,
 		controllers.Adapt(
 			http.HandlerFunc(c),
@@ -162,17 +173,21 @@ func (l *HttpListener) AddAuthorizedController(c controllers.Controller, path st
 }
 
 func (l *HttpListener) Start() {
+	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With", "authorization", "Authorization", "content-type"})
+	originsOk := handlers.AllowedOrigins([]string{"*"})
+	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"})
+
 	l.Logger.Notice("Starting %v Go Rest API v%v", l.Services.Version.Name, l.Services.Version.String())
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt)
+	done := make(chan bool)
 
 	l.Router.HandleFunc(l.Options.ApiPrefix+"/", defaultHomepageController)
+	l.Router.HandleFunc(l.Options.ApiPrefix+"/shutdown", globalHttpListener.ShutdownHandler)
 
 	// Creating and starting the http server
 	srv := &http.Server{
 		Addr:    ":" + l.Options.HttpPort,
-		Handler: l.Router,
+		Handler: handlers.CORS(originsOk, headersOk, methodsOk)(l.Router),
 	}
 
 	l.Servers = append(l.Servers, srv)
@@ -181,8 +196,11 @@ func (l *HttpListener) Start() {
 		l.Logger.Info("Api listening on http://::" + l.Options.HttpPort + l.Options.ApiPrefix)
 		l.Logger.Success("Finished Initiating http server")
 		if err := srv.ListenAndServe(); err != nil {
-			l.Logger.FatalError(err, "There was an error")
+			if !strings.Contains(err.Error(), "http: Server closed") {
+				l.Logger.Error("There was an error shutting down the http server: %v", err.Error())
+			}
 		}
+		done <- true
 	}()
 
 	if l.Options.EnableTLS {
@@ -204,28 +222,53 @@ func (l *HttpListener) Start() {
 				l.Logger.Info("Api listening on https://::" + l.Options.TLSPort + l.Options.ApiPrefix)
 				l.Logger.Success("Finished Initiating https server")
 				if err := sslSrv.ListenAndServeTLS("", ""); err != nil {
-					l.Logger.FatalError(err, "There was an error")
+					if !strings.Contains(err.Error(), "http: Server closed") {
+						l.Logger.Error("There was an error shutting down the https server: %v", err.Error())
+					}
 				}
+				done <- true
 			}()
 		} else {
 			l.Logger.Error("There was an error reading the certificates to enable HTTPS")
 		}
 	}
 
-	<-quit
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal(err)
-	}
-	l.Logger.Info("Server shutdown")
+	l.WaitAndShutdown()
+	<-done
+
+	l.Logger.Info("Server shut down successfully...")
 	// http.ListenAndServeTLS(":10001", "./ssl/local-cluster.internal.crt", "./ssl/local-cluster.internal.key", router)
+}
+
+func (l *HttpListener) WaitAndShutdown() {
+	irqSign := make(chan os.Signal, 1)
+	signal.Notify(irqSign, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case sig := <-irqSign:
+		l.Logger.Info("Server shutdown requested (signal: %v)", sig.String())
+	case sig := <-l.shutdownRequest:
+		l.Logger.Info("Server shutdown requested (/shutdown: %v)", fmt.Sprintf("%v", sig))
+	}
+
+	l.Logger.Info("Stopping the server...")
+
+	//Create shutdown context with 10 second timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	//Create shutdown context with 10 second timeout
+	for _, s := range l.Servers {
+		err := s.Shutdown(ctx)
+		if err != nil {
+			l.Logger.Error("Shutdown request error: %v", err.Error())
+		}
+	}
 }
 
 //region Private Methods
 func (l *HttpListener) getDefaultConfiguration() *HttpListenerOptions {
 	options := HttpListenerOptions{
-		ApiPrefix:               l.Services.Context.Configuration.GetString("API_PREFIX"),
 		HttpPort:                l.Services.Context.Configuration.GetString("HTTP_PORT"),
 		EnableTLS:               l.Services.Context.Configuration.GetBool("ENABLE_TLS"),
 		TLSPort:                 l.Services.Context.Configuration.GetString("TLS_PORT"),
@@ -247,6 +290,17 @@ func (l *HttpListener) getDefaultConfiguration() *HttpListenerOptions {
 		options.DatabaseName = "users"
 	}
 
+	apiPrefix := l.Services.Context.Configuration.GetString("API_PREFIX")
+	if apiPrefix == "" {
+		apiPrefix = "/"
+	}
+
+	if !strings.HasPrefix(apiPrefix, "/") {
+		apiPrefix = fmt.Sprintf("/%v", apiPrefix)
+	}
+
+	options.ApiPrefix = apiPrefix
+
 	l.Options = &options
 
 	return l.Options
@@ -259,6 +313,10 @@ func defaultHomepageController(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(response)
+}
+
+func getDefaultBaseUrl() {
+
 }
 
 //endregion

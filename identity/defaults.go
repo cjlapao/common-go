@@ -3,12 +3,14 @@ package identity
 import (
 	"fmt"
 
-	database "github.com/cjlapao/common-go/database/mongo"
+	"github.com/cjlapao/common-go/database/mongodb"
 	"github.com/cjlapao/common-go/executionctx"
 	"github.com/cjlapao/common-go/helper"
+	"github.com/cjlapao/common-go/log"
 	"github.com/cjlapao/common-go/security"
-	"github.com/google/uuid"
 )
+
+var logger = log.Get()
 
 func GetDefaultUsers() []User {
 	config := executionctx.GetConfigService()
@@ -21,16 +23,20 @@ func GetDefaultUsers() []User {
 
 	if helper.IsNilOrEmpty(adminUsername) {
 		adminUser = User{
-			ID:       uuid.NewString(),
-			Email:    "admin@localhost",
-			Username: "admin",
-			Password: "a075d17f3d453073853f813838c15b8023b8c487038436354fe599c3942e1f95",
+			ID:        "592D8E5C-6F5D-40A0-9348-80131B083715",
+			Email:     "admin@localhost",
+			FirstName: "Administrator",
+			LastName:  "User",
+			Username:  "admin",
+			Password:  "a075d17f3d453073853f813838c15b8023b8c487038436354fe599c3942e1f95",
 		}
 	} else {
 		adminUser = User{
-			ID:       uuid.NewString(),
-			Email:    fmt.Sprintf("%v@localhost", adminUsername),
-			Username: adminUsername,
+			ID:        "592D8E5C-6F5D-40A0-9348-80131B083715",
+			Email:     fmt.Sprintf("%v@localhost", adminUsername),
+			FirstName: "Administrator",
+			LastName:  "User",
+			Username:  adminUsername,
 		}
 	}
 
@@ -45,18 +51,22 @@ func GetDefaultUsers() []User {
 	demoUsername := config.GetString("DEMO_USERNAME")
 	demoPassword := config.GetString("DEMO_PASSWORD")
 
-	if helper.IsNilOrEmpty(adminUsername) {
+	if helper.IsNilOrEmpty(demoUsername) {
 		demoUser = User{
-			ID:       uuid.NewString(),
-			Email:    "demo@localhost",
-			Username: "demo",
-			Password: "2a97516c354b68848cdbd8f54a226a0a55b21ed138e207ad6c5cbb9c00aa5aea",
+			ID:        "C54C2A9B-CA73-4188-875A-F26026A38B58",
+			Email:     "demo@localhost",
+			FirstName: "Demo",
+			LastName:  "User",
+			Username:  "demo",
+			Password:  "2a97516c354b68848cdbd8f54a226a0a55b21ed138e207ad6c5cbb9c00aa5aea",
 		}
 	} else {
 		demoUser = User{
-			ID:       uuid.NewString(),
-			Email:    fmt.Sprintf("%v@localhost", demoUsername),
-			Username: adminUsername,
+			ID:        "C54C2A9B-CA73-4188-875A-F26026A38B58",
+			Email:     fmt.Sprintf("%v@localhost", demoUsername),
+			FirstName: "Administrator",
+			LastName:  "User",
+			Username:  demoUsername,
 		}
 	}
 
@@ -74,14 +84,15 @@ func GetDefaultUsers() []User {
 	return users
 }
 
-func Seed(factory *database.MongoFactory, databaseName string) {
+func Seed(factory *mongodb.MongoFactory, databaseName string) {
 	SeedUsers(factory, databaseName)
 }
 
-func SeedUsers(factory *database.MongoFactory, databaseName string) {
-	repo := database.NewRepository(factory, databaseName, IdentityUsersCollection)
+func SeedUsers(factory *mongodb.MongoFactory, databaseName string) {
+	repo := mongodb.NewRepository(factory, databaseName, IdentityUsersCollection)
 	users := GetDefaultUsers()
 	for _, user := range users {
-		repo.UpsertOne("email", user.Email, user)
+		model := mongodb.NewUpdateOneBuilder().FilterBy("email", user.Email).Encode(user).Build()
+		repo.UpsertOne(model)
 	}
 }

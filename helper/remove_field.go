@@ -24,6 +24,8 @@ func RemoveField(obj interface{}, fields ...string) map[string]interface{} {
 				result[field.Name] = rv.Field(i).Int()
 			case reflect.String:
 				result[field.Name] = rv.Field(i).String()
+			case reflect.Bool:
+				result[field.Name] = rv.Field(i).Bool()
 			case reflect.Struct:
 				result[field.Name] = rv.Field(i)
 			}
