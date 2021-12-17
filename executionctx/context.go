@@ -2,8 +2,10 @@ package executionctx
 
 import (
 	"os"
+	"reflect"
 	"strings"
 
+	"github.com/cjlapao/common-go/cache"
 	"github.com/cjlapao/common-go/helper"
 	"github.com/google/uuid"
 )
@@ -19,6 +21,7 @@ type Context struct {
 	IsDevelopment bool
 	Debug         bool
 	Init          func() error
+	Caches        []*cache.CacheService
 }
 
 func NewContext() (*Context, error) {
@@ -35,6 +38,8 @@ func InitNewContext(init func() error) (*Context, error) {
 		Debug:         false,
 		Init:          init,
 	}
+
+	contextService.Caches = make([]*cache.CacheService, 0)
 
 	contextService.CorrelationId = uuid.NewString()
 	environment := os.Getenv("CJ_ENVIRONMENT")
@@ -92,4 +97,20 @@ func GetContext() *Context {
 	NewContext()
 
 	return contextService
+}
+
+func (c *Context) RegisterCacheServices(services []*cache.CacheService) {
+	for _, serviceToRegister := range services {
+		found := false
+		for _, service := range c.Caches {
+			if reflect.TypeOf(service) == reflect.TypeOf(serviceToRegister) {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			c.Caches = append(c.Caches, serviceToRegister)
+		}
+	}
 }
