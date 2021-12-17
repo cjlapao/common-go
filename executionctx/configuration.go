@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/cjlapao/common-go/guard"
+	"github.com/cjlapao/common-go/helper"
 	"github.com/cjlapao/common-go/security"
 )
 
@@ -169,7 +171,6 @@ func (c *Configuration) Clear() {
 func (c *Configuration) getFromVault(key string) interface{} {
 	for keyIndex, keyValue := range vault {
 		if key == keyIndex {
-			fmt.Print("found")
 			return keyValue
 		}
 	}
@@ -179,4 +180,24 @@ func (c *Configuration) getFromVault(key string) interface{} {
 
 func (c *Configuration) getFromEnvironment(key string) string {
 	return os.Getenv(key)
+}
+
+func (c *Configuration) LoadFromFile(path string) {
+	if helper.FileExists(path) {
+		content, err := helper.ReadFromFile(path)
+		if err == nil {
+			lines := strings.Split(string(content), "\n")
+			for _, line := range lines {
+				index := strings.Index(line, "=")
+				key := line[0:index]
+				key = strings.TrimLeft(key, "\"")
+				key = strings.TrimRight(key, "\"")
+
+				value := line[index+1:]
+				value = strings.TrimLeft(value, "\"")
+				value = strings.TrimRight(value, "\"")
+				c.UpsertKey(key, value)
+			}
+		}
+	}
 }
