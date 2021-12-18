@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/cjlapao/common-go/cache"
+	"github.com/cjlapao/common-go/executionctx/configuration"
 	"github.com/cjlapao/common-go/helper"
 	"github.com/google/uuid"
 )
@@ -14,7 +15,7 @@ var contextService *Context
 
 // Context entity
 type Context struct {
-	Configuration *Configuration
+	Configuration *configuration.ConfigurationService
 	User          *UserCtx
 	CorrelationId string
 	Environment   string
@@ -76,7 +77,7 @@ func InitNewContext(init func() error) (*Context, error) {
 		contextService.Debug = false
 	}
 
-	contextService.Configuration = GetConfigService()
+	contextService.Configuration = configuration.Get()
 
 	if contextService.Init != nil {
 		err := contextService.Init()

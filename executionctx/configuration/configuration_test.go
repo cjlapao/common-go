@@ -1,4 +1,4 @@
-package executionctx
+package configuration
 
 import (
 	"errors"
@@ -16,9 +16,9 @@ func TestGetConfigurationProvider_ReturnCorrect(t *testing.T) {
 	configurationService = nil
 	vault = make(map[string]interface{})
 
-	config := GetConfigService()
+	config := Get()
 	key1 := config.Get("foo")
-	initializedConfig := GetConfigService()
+	initializedConfig := Get()
 
 	// Assert
 	assert.False(t, helper.IsNilOrEmpty(config))
@@ -32,11 +32,11 @@ func TestGetConfigurationProvider_ResturnsSameKeyAfterReinitialization(t *testin
 	configurationService = nil
 	vault = make(map[string]interface{})
 
-	config := GetConfigService()
+	config := Get()
 	key1 := config.Get("foo")
 	config.UpsertKey("foo", "bar")
 	updatedKey1 := config.Get("foo")
-	initializedConfig := GetConfigService()
+	initializedConfig := Get()
 	key2 := initializedConfig.Get("foo")
 
 	// Assert
@@ -53,7 +53,7 @@ func TestConfigurationProvider_IfUpsertEmptyKeyErrorIsReturned(t *testing.T) {
 	configurationService = nil
 	vault = make(map[string]interface{})
 
-	config := GetConfigService()
+	config := Get()
 
 	//Act
 	key1 := config.UpsertKey("", "bar")
@@ -68,7 +68,7 @@ func TestConfigurationProvider_IfUpsertEmptyValueErrorIsReturned(t *testing.T) {
 	configurationService = nil
 	vault = make(map[string]interface{})
 
-	config := GetConfigService()
+	config := Get()
 	var emptyInterface interface{}
 	emptyStruct := helper.TestStructure{}
 
@@ -101,7 +101,7 @@ func TestConfigurationProvider_IfUpsertKeyValueIsStoredInVault(t *testing.T) {
 	configurationService = nil
 	vault = make(map[string]interface{})
 
-	config := GetConfigService()
+	config := Get()
 	testStruct := helper.TestStructure{
 		TestString: "bar",
 	}
@@ -139,7 +139,7 @@ func TestConfigurationProvider_GetKeyShouldReturnEnvValues(t *testing.T) {
 	// resetting the internal values
 	configurationService = nil
 	vault = make(map[string]interface{})
-	config := GetConfigService()
+	config := Get()
 	os.Setenv("foo", "bar")
 
 	//Act
@@ -158,7 +158,7 @@ func TestConfigurationProvider_GetKeyShouldReturnEnvValuesInsteadOfVaultValues(t
 	configurationService = nil
 	vault = make(map[string]interface{})
 
-	config := GetConfigService()
+	config := Get()
 	os.Setenv("foo", "bar")
 	config.UpsertKey("foo", "noPriorityBar")
 
@@ -178,7 +178,7 @@ func TestConfigurationProvider_UpsertEmptyKeysShouldReturnNil(t *testing.T) {
 	configurationService = nil
 	vault = make(map[string]interface{})
 
-	config := GetConfigService()
+	config := Get()
 	inserts := make(map[string]interface{})
 
 	//Act
@@ -194,7 +194,7 @@ func TestConfigurationProvider_UpsertEmptyKeysShouldReturnError(t *testing.T) {
 	configurationService = nil
 	vault = make(map[string]interface{})
 
-	config := GetConfigService()
+	config := Get()
 	var inserts map[string]interface{}
 
 	//Act
@@ -211,7 +211,7 @@ func TestConfigurationProvider_UpsertKeysShouldAddArrayIntoVault(t *testing.T) {
 	configurationService = nil
 	vault = make(map[string]interface{})
 
-	config := GetConfigService()
+	config := Get()
 	inserts := make(map[string]interface{})
 	inserts["foo"] = "bar"
 	inserts["on"] = "theMoney"
@@ -235,7 +235,7 @@ func TestConfigurationProvider_UpsertKeysWithErrorsShouldReturnArray(t *testing.
 	configurationService = nil
 	vault = make(map[string]interface{})
 
-	config := GetConfigService()
+	config := Get()
 	inserts := make(map[string]interface{})
 	inserts["foo"] = "bar"
 	inserts["on"] = "theMoney"
@@ -262,10 +262,10 @@ func TestConfigurationProvider_UpsertKeysWithErrorsShouldReturnArray(t *testing.
 
 func TestNewConfigServiceResetsVault(t *testing.T) {
 	//Arrange
-	config := NewConfigService()
+	config := New().RegisterDefaults()
 	config.UpsertKey("foo", "bar")
 	keyValue := config.Get("foo")
-	config = NewConfigService()
+	config = New().RegisterDefaults()
 	newKeyValue := config.Get("foo")
 
 	//Assert
@@ -276,12 +276,12 @@ func TestNewConfigServiceResetsVault(t *testing.T) {
 
 func TestClearEmptiesVault(t *testing.T) {
 	//Arrange
-	config := NewConfigService()
+	config := New().RegisterDefaults()
 	config.UpsertKey("foo", "bar")
 
 	//Act
 	keyValue := config.Get("foo")
-	config.Clear()
+	config.Clear("foo")
 	keyValueAfterClear := config.Get("foo")
 
 	//assert
@@ -307,7 +307,7 @@ func TestGetString_ReturnCorrectValue(t *testing.T) {
 	for _, tt := range tests {
 		testName := fmt.Sprintf("Getting String Return Correct Value -> %v,%v", tt.value, tt.varName)
 		t.Run(testName, func(t *testing.T) {
-			config := NewConfigService()
+			config := New().RegisterDefaults()
 			config.UpsertKey(tt.varName, tt.value)
 
 			// act
@@ -320,7 +320,7 @@ func TestGetString_ReturnCorrectValue(t *testing.T) {
 
 func TestGetString_WithNotFoundValue_ReturnEmptyString(t *testing.T) {
 	//Arrange
-	config := NewConfigService()
+	config := New().RegisterDefaults()
 
 	// act
 	keyValue := config.GetString("notFound")
@@ -330,7 +330,7 @@ func TestGetString_WithNotFoundValue_ReturnEmptyString(t *testing.T) {
 
 func TestGetString_WithEmptyKey_ReturnEmptyString(t *testing.T) {
 	//Arrange
-	config := NewConfigService()
+	config := New().RegisterDefaults()
 
 	// act
 	keyValue := config.GetString("")
@@ -356,7 +356,7 @@ func TestGetInt_ReturnCorrectValue(t *testing.T) {
 	for _, tt := range tests {
 		testName := fmt.Sprintf("Getting Int Return Correct Value -> %v,%v", tt.value, tt.varName)
 		t.Run(testName, func(t *testing.T) {
-			config := NewConfigService()
+			config := New().RegisterDefaults()
 			config.UpsertKey(tt.varName, tt.value)
 
 			// act
@@ -369,7 +369,7 @@ func TestGetInt_ReturnCorrectValue(t *testing.T) {
 
 func TestGetInt_WithNotFoundValue_ReturnEmptyString(t *testing.T) {
 	//Arrange
-	config := NewConfigService()
+	config := New().RegisterDefaults()
 
 	// act
 	keyValue := config.GetInt("notFound")
@@ -379,7 +379,7 @@ func TestGetInt_WithNotFoundValue_ReturnEmptyString(t *testing.T) {
 
 func TestGetInt_WithEmptyKey_ReturnEmptyString(t *testing.T) {
 	//Arrange
-	config := NewConfigService()
+	config := New().RegisterDefaults()
 
 	// act
 	keyValue := config.GetInt("")
@@ -411,7 +411,7 @@ func TestGetBool_ReturnCorrectValue(t *testing.T) {
 	for _, tt := range tests {
 		testName := fmt.Sprintf("Getting Bool Return Correct Value -> %v,%v", tt.value, tt.varName)
 		t.Run(testName, func(t *testing.T) {
-			config := NewConfigService()
+			config := New().RegisterDefaults()
 			config.UpsertKey(tt.varName, tt.value)
 
 			// act
@@ -424,7 +424,7 @@ func TestGetBool_ReturnCorrectValue(t *testing.T) {
 
 func TestGetBool_WithNotFoundValue_ReturnFalse(t *testing.T) {
 	//Arrange
-	config := NewConfigService()
+	config := New().RegisterDefaults()
 
 	// act
 	keyValue := config.GetBool("notFound")
@@ -434,7 +434,7 @@ func TestGetBool_WithNotFoundValue_ReturnFalse(t *testing.T) {
 
 func TestGetBool_WithEmptyKey_ReturnFalse(t *testing.T) {
 	//Arrange
-	config := NewConfigService()
+	config := New().RegisterDefaults()
 
 	// act
 	keyValue := config.GetBool("")
@@ -460,7 +460,7 @@ func TestGetFloat_ReturnCorrectValue(t *testing.T) {
 	for _, tt := range tests {
 		testName := fmt.Sprintf("Getting Int Return Correct Value -> %v,%v", tt.value, tt.varName)
 		t.Run(testName, func(t *testing.T) {
-			config := NewConfigService()
+			config := New().RegisterDefaults()
 			config.UpsertKey(tt.varName, tt.value)
 
 			// act
@@ -473,7 +473,7 @@ func TestGetFloat_ReturnCorrectValue(t *testing.T) {
 
 func TestGeFloat_WithNotFoundValue_ReturnZero(t *testing.T) {
 	//Arrange
-	config := NewConfigService()
+	config := New().RegisterDefaults()
 
 	// act
 	keyValue := config.GetFloat("notFound")
@@ -483,7 +483,7 @@ func TestGeFloat_WithNotFoundValue_ReturnZero(t *testing.T) {
 
 func TestGetFloat_WithEmptyKey_ReturnZero(t *testing.T) {
 	//Arrange
-	config := NewConfigService()
+	config := New().RegisterDefaults()
 
 	// act
 	keyValue := config.GetFloat("")
@@ -508,7 +508,7 @@ func TestGetBase64_ReturnCorrectValue(t *testing.T) {
 	for _, tt := range tests {
 		testName := fmt.Sprintf("Getting String Return Correct Value -> %v,%v", tt.value, tt.varName)
 		t.Run(testName, func(t *testing.T) {
-			config := NewConfigService()
+			config := New().RegisterDefaults()
 			config.UpsertKey(tt.varName, tt.value)
 
 			// act
@@ -521,7 +521,7 @@ func TestGetBase64_ReturnCorrectValue(t *testing.T) {
 
 func TestGetBase64_WithNotFoundValue_ReturnEmptyString(t *testing.T) {
 	//Arrange
-	config := NewConfigService()
+	config := New().RegisterDefaults()
 
 	// act
 	keyValue := config.GetBase64("notFound")
@@ -531,7 +531,7 @@ func TestGetBase64_WithNotFoundValue_ReturnEmptyString(t *testing.T) {
 
 func TestGetBase64_WithEmptyKey_ReturnEmptyString(t *testing.T) {
 	//Arrange
-	config := NewConfigService()
+	config := New().RegisterDefaults()
 
 	// act
 	keyValue := config.GetBase64("")

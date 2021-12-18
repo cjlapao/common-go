@@ -13,7 +13,7 @@ import (
 var logger = log.Get()
 
 func GetDefaultUsers() []User {
-	config := executionctx.GetConfigService()
+	config := executionctx.GetContext().Configuration
 	users := make([]User, 0)
 	var adminUser User
 	var demoUser User
