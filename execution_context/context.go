@@ -1,13 +1,15 @@
-package executionctx
+package execution_context
 
 import (
 	"os"
-	"reflect"
 	"strings"
 
 	"github.com/cjlapao/common-go/cache"
-	"github.com/cjlapao/common-go/executionctx/configuration"
+	"github.com/cjlapao/common-go/cache/jwt_token_cache"
+	"github.com/cjlapao/common-go/configuration"
 	"github.com/cjlapao/common-go/helper"
+	"github.com/cjlapao/common-go/identity/authorization_context"
+	"github.com/cjlapao/common-go/service_provider"
 	"github.com/google/uuid"
 )
 
@@ -16,16 +18,18 @@ var contextService *Context
 // Context entity
 type Context struct {
 	Configuration *configuration.ConfigurationService
-	User          *UserCtx
+	Services      *service_provider.ServiceProvider
+	Caches        *cache.CacheService
+	TokenCache    *jwt_token_cache.JwtTokenCacheProvider
+	Authorization *authorization_context.AuthorizationContext
 	CorrelationId string
 	Environment   string
 	IsDevelopment bool
 	Debug         bool
 	Init          func() error
-	Caches        []*cache.CacheService
 }
 
-func NewContext() (*Context, error) {
+func New() (*Context, error) {
 	if contextService != nil {
 		contextService = nil
 	}
@@ -40,9 +44,11 @@ func InitNewContext(init func() error) (*Context, error) {
 		Init:          init,
 	}
 
-	contextService.Caches = make([]*cache.CacheService, 0)
-
+	contextService.Caches = cache.Get()
+	contextService.TokenCache = jwt_token_cache.New()
 	contextService.CorrelationId = uuid.NewString()
+	contextService.Services = service_provider.Get()
+
 	environment := os.Getenv("CJ_ENVIRONMENT")
 	debug := os.Getenv("CJ_ENABLE_DEBUG")
 
@@ -87,31 +93,18 @@ func InitNewContext(init func() error) (*Context, error) {
 		}
 	}
 
+	// Authorization Context
+	contextService.Authorization = authorization_context.New()
+
 	return contextService, nil
 }
 
-func GetContext() *Context {
+func Get() *Context {
 	if contextService != nil {
 		return contextService
 	}
 
-	NewContext()
+	New()
 
 	return contextService
-}
-
-func (c *Context) RegisterCacheServices(services []*cache.CacheService) {
-	for _, serviceToRegister := range services {
-		found := false
-		for _, service := range c.Caches {
-			if reflect.TypeOf(service) == reflect.TypeOf(serviceToRegister) {
-				found = true
-				break
-			}
-		}
-
-		if !found {
-			c.Caches = append(c.Caches, serviceToRegister)
-		}
-	}
 }

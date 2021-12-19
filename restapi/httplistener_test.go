@@ -13,7 +13,7 @@ func TestNewHttpListener_CreatesHttpListenerWithDefaultParams(t *testing.T) {
 	assert.NotNilf(t, listener.Options, "Listener Options should not be empty")
 	assert.NotNilf(t, listener.Logger, "Listener Logger should not be empty")
 	assert.NotNilf(t, listener.Router, "Listener Router should not be empty")
-	assert.NotNilf(t, listener.Services, "Listener Services should not be empty")
+	assert.NotNilf(t, listener.Context, "Listener Context should not be empty")
 	assert.Lenf(t, listener.Controllers, 0, "Controllers should be empty")
 	assert.Equalf(t, "5000", listener.Options.HttpPort, "Http port should be 5000")
 	assert.Equalf(t, "5001", listener.Options.TLSPort, "Https port should be 5001")

@@ -19,24 +19,24 @@ type ConfigurationProvider interface {
 	Clear(key string)
 }
 
-var configurationService *ConfigurationService
+var globalConfigurationService *ConfigurationService
 
 type ConfigurationService struct {
 	Providers []ConfigurationProvider
 }
 
 func New() *ConfigurationService {
-	if configurationService != nil {
-		configurationService = nil
+	if globalConfigurationService != nil {
+		globalConfigurationService = nil
 	}
 
-	configurationService = &ConfigurationService{}
+	globalConfigurationService = &ConfigurationService{}
 	if vault != nil {
 		vault = nil
 	}
 	vault = make(map[string]interface{})
 
-	return configurationService
+	return globalConfigurationService
 }
 
 func NewWithDefaults() *ConfigurationService {
@@ -44,8 +44,8 @@ func NewWithDefaults() *ConfigurationService {
 }
 
 func Get() *ConfigurationService {
-	if configurationService != nil {
-		return configurationService
+	if globalConfigurationService != nil {
+		return globalConfigurationService
 	}
 
 	return NewWithDefaults()

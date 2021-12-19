@@ -1,4 +1,4 @@
-package executionctx
+package execution_context
 
 import (
 	"errors"
@@ -11,7 +11,7 @@ import (
 func TestNewContextShouldReturnContextWithDefaultValues(t *testing.T) {
 	// arrange
 	contextService = nil
-	ctx, err := NewContext()
+	ctx, err := New()
 
 	//Assert
 	assert.Nilf(t, err, "Error should be null")
@@ -53,10 +53,10 @@ func TestInitNewContextShouldRunInitAndReturnError(t *testing.T) {
 func TestNewContextShouldResetOldContext(t *testing.T) {
 	// Arrange + Act
 	contextService = nil
-	ctx, _ := NewContext()
+	ctx, _ := New()
 	ctx.IsDevelopment = true
 
-	ctxNew, _ := NewContext()
+	ctxNew, _ := New()
 
 	// Assert
 	assert.NotNil(t, ctxNew, "Context should not be nil")
@@ -69,7 +69,7 @@ func TestNewContextShouldSetEnvironmentToDevelopment(t *testing.T) {
 	// Arrange + Act
 	contextService = nil
 	os.Setenv("CJ_ENVIRONMENT", "Development")
-	ctx, _ := NewContext()
+	ctx, _ := New()
 
 	// Assert
 	assert.NotNil(t, ctx, "Context should not be nil")
@@ -82,7 +82,7 @@ func TestNewContextShouldSetEnvironmentToDevProd(t *testing.T) {
 	// Arrange + Act
 	contextService = nil
 	os.Setenv("CJ_ENVIRONMENT", "DevProd")
-	ctx, _ := NewContext()
+	ctx, _ := New()
 
 	// Assert
 	assert.NotNil(t, ctx, "Context should not be nil")
@@ -95,7 +95,7 @@ func TestNewContextShouldSetEnvironmentToCi(t *testing.T) {
 	// Arrange + Act
 	contextService = nil
 	os.Setenv("CJ_ENVIRONMENT", "Ci")
-	ctx, _ := NewContext()
+	ctx, _ := New()
 
 	// Assert
 	assert.NotNil(t, ctx, "Context should not be nil")
@@ -108,7 +108,7 @@ func TestNewContextShouldSetEnvironmentToRelease(t *testing.T) {
 	// Arrange + Act
 	contextService = nil
 	os.Setenv("CJ_ENVIRONMENT", "Release")
-	ctx, _ := NewContext()
+	ctx, _ := New()
 
 	// Assert
 	assert.NotNil(t, ctx, "Context should not be nil")
@@ -121,7 +121,7 @@ func TestNewContextShouldSetEnvironmentToProduction(t *testing.T) {
 	// Arrange + Act
 	contextService = nil
 	os.Setenv("CJ_ENVIRONMENT", "Production")
-	ctx, _ := NewContext()
+	ctx, _ := New()
 
 	// Assert
 	assert.NotNil(t, ctx, "Context should not be nil")
@@ -134,7 +134,7 @@ func TestNewContextShouldSetEnvironmentToOthers(t *testing.T) {
 	// Arrange + Act
 	contextService = nil
 	os.Setenv("CJ_ENVIRONMENT", "RandomEnvironment")
-	ctx, _ := NewContext()
+	ctx, _ := New()
 
 	// Assert
 	assert.NotNil(t, ctx, "Context should not be nil")
@@ -147,7 +147,7 @@ func TestNewContextShouldSetDebugOn(t *testing.T) {
 	// Arrange + Act
 	contextService = nil
 	os.Setenv("CJ_ENABLE_DEBUG", "true")
-	ctx, _ := NewContext()
+	ctx, _ := New()
 
 	// Assert
 	assert.NotNil(t, ctx, "Context should not be nil")
@@ -159,7 +159,7 @@ func TestNewContextShouldSetDebugOff(t *testing.T) {
 	// Arrange + Act
 	contextService = nil
 	os.Setenv("CJ_ENABLE_DEBUG", "enabled")
-	ctx, _ := NewContext()
+	ctx, _ := New()
 
 	// Assert
 	assert.NotNil(t, ctx, "Context should not be nil")
@@ -170,7 +170,7 @@ func TestNewContextShouldSetDebugOff(t *testing.T) {
 func TestGetContextShouldReturnContextWithDefaultValues(t *testing.T) {
 	// arrange
 	contextService = nil
-	ctx := GetContext()
+	ctx := Get()
 
 	//Assert
 	assert.NotNilf(t, ctx, "Context should not be nil")
@@ -183,10 +183,10 @@ func TestGetContextShouldReturnContextWithDefaultValues(t *testing.T) {
 
 func TestGetContextShouldReturnExistingContext(t *testing.T) {
 	// arrange
-	existingCtx, _ := NewContext()
+	existingCtx, _ := New()
 	existingCtx.IsDevelopment = true
 	existingCorrelationId := existingCtx.CorrelationId
-	ctx := GetContext()
+	ctx := Get()
 
 	//Assert
 	assert.NotNilf(t, ctx, "Context should not be be nil")

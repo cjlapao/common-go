@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/fatih/color v1.13.0
 	github.com/google/uuid v1.3.0
+	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/pascaldekloe/jwt v1.10.0
 	github.com/stretchr/testify v1.7.0
@@ -17,7 +18,6 @@ require (
 	github.com/felixge/httpsnoop v1.0.1 // indirect
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/golang/snappy v0.0.1 // indirect
-	github.com/gorilla/handlers v1.5.1 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect

@@ -13,7 +13,7 @@ import (
 func TestGetConfigurationProvider_ReturnCorrect(t *testing.T) {
 	// Arrange + Act
 	// resetting the internal values
-	configurationService = nil
+	globalConfigurationService = nil
 	vault = make(map[string]interface{})
 
 	config := Get()
@@ -29,7 +29,7 @@ func TestGetConfigurationProvider_ReturnCorrect(t *testing.T) {
 func TestGetConfigurationProvider_ResturnsSameKeyAfterReinitialization(t *testing.T) {
 	// Arrange + Act
 	// resetting the internal values
-	configurationService = nil
+	globalConfigurationService = nil
 	vault = make(map[string]interface{})
 
 	config := Get()
@@ -50,7 +50,7 @@ func TestGetConfigurationProvider_ResturnsSameKeyAfterReinitialization(t *testin
 func TestConfigurationProvider_IfUpsertEmptyKeyErrorIsReturned(t *testing.T) {
 	//Arrange
 	// resetting the internal values
-	configurationService = nil
+	globalConfigurationService = nil
 	vault = make(map[string]interface{})
 
 	config := Get()
@@ -65,7 +65,7 @@ func TestConfigurationProvider_IfUpsertEmptyKeyErrorIsReturned(t *testing.T) {
 func TestConfigurationProvider_IfUpsertEmptyValueErrorIsReturned(t *testing.T) {
 	//Arrange
 	// resetting the internal values
-	configurationService = nil
+	globalConfigurationService = nil
 	vault = make(map[string]interface{})
 
 	config := Get()
@@ -98,7 +98,7 @@ func TestConfigurationProvider_IfUpsertEmptyValueErrorIsReturned(t *testing.T) {
 func TestConfigurationProvider_IfUpsertKeyValueIsStoredInVault(t *testing.T) {
 	//Arrange
 	// resetting the internal values
-	configurationService = nil
+	globalConfigurationService = nil
 	vault = make(map[string]interface{})
 
 	config := Get()
@@ -137,7 +137,7 @@ func TestConfigurationProvider_IfUpsertKeyValueIsStoredInVault(t *testing.T) {
 func TestConfigurationProvider_GetKeyShouldReturnEnvValues(t *testing.T) {
 	//Arrange
 	// resetting the internal values
-	configurationService = nil
+	globalConfigurationService = nil
 	vault = make(map[string]interface{})
 	config := Get()
 	os.Setenv("foo", "bar")
@@ -155,7 +155,7 @@ func TestConfigurationProvider_GetKeyShouldReturnEnvValues(t *testing.T) {
 func TestConfigurationProvider_GetKeyShouldReturnEnvValuesInsteadOfVaultValues(t *testing.T) {
 	//Arrange
 	// resetting the internal values
-	configurationService = nil
+	globalConfigurationService = nil
 	vault = make(map[string]interface{})
 
 	config := Get()
@@ -175,7 +175,7 @@ func TestConfigurationProvider_GetKeyShouldReturnEnvValuesInsteadOfVaultValues(t
 func TestConfigurationProvider_UpsertEmptyKeysShouldReturnNil(t *testing.T) {
 	//Arrange
 	// resetting the internal values
-	configurationService = nil
+	globalConfigurationService = nil
 	vault = make(map[string]interface{})
 
 	config := Get()
@@ -191,7 +191,7 @@ func TestConfigurationProvider_UpsertEmptyKeysShouldReturnNil(t *testing.T) {
 func TestConfigurationProvider_UpsertEmptyKeysShouldReturnError(t *testing.T) {
 	//Arrange
 	// resetting the internal values
-	configurationService = nil
+	globalConfigurationService = nil
 	vault = make(map[string]interface{})
 
 	config := Get()
@@ -208,7 +208,7 @@ func TestConfigurationProvider_UpsertEmptyKeysShouldReturnError(t *testing.T) {
 func TestConfigurationProvider_UpsertKeysShouldAddArrayIntoVault(t *testing.T) {
 	//Arrange
 	// resetting the internal values
-	configurationService = nil
+	globalConfigurationService = nil
 	vault = make(map[string]interface{})
 
 	config := Get()
@@ -232,7 +232,7 @@ func TestConfigurationProvider_UpsertKeysShouldAddArrayIntoVault(t *testing.T) {
 func TestConfigurationProvider_UpsertKeysWithErrorsShouldReturnArray(t *testing.T) {
 	//Arrange
 	// resetting the internal values
-	configurationService = nil
+	globalConfigurationService = nil
 	vault = make(map[string]interface{})
 
 	config := Get()

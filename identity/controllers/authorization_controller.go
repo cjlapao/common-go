@@ -1,4 +1,4 @@
-package identity
+package controllers
 
 import (
 	"encoding/json"
@@ -6,34 +6,34 @@ import (
 	"net/http"
 
 	"github.com/cjlapao/common-go/controllers"
+	"github.com/cjlapao/common-go/identity/authorization_context"
+	"github.com/cjlapao/common-go/identity/identity_database_adapter"
+	"github.com/cjlapao/common-go/identity/identity_jwt"
+	"github.com/cjlapao/common-go/identity/models"
 	"github.com/cjlapao/common-go/security"
 )
 
-type AuthorizationControlles interface {
-	Context() UserContext
+type AuthorizationControllers interface {
+	Context() authorization_context.AuthorizationContext
 	Login() controllers.Controller
 	Validate() controllers.Controller
 }
 
-type AuthorizationContext struct {
-	User User
-}
-
 type DefaultAuthorizationControllers struct {
-	Context UserContext
+	UserAdapter identity_database_adapter.UserDatabaseAdapter
 }
 
 func NewDefaultAuthorizationControllers() *DefaultAuthorizationControllers {
-	context := NewDefaultUserContext()
+	context := identity_database_adapter.NewMemoryUserAdapter()
 	controllers := DefaultAuthorizationControllers{
-		Context: context,
+		UserAdapter: context,
 	}
 	return &controllers
 }
 
-func NewAuthorizationControllers(context UserContext) *DefaultAuthorizationControllers {
+func NewAuthorizationControllers(context identity_database_adapter.UserDatabaseAdapter) *DefaultAuthorizationControllers {
 	controllers := DefaultAuthorizationControllers{
-		Context: context,
+		UserAdapter: context,
 	}
 	return &controllers
 }
@@ -42,19 +42,25 @@ func NewAuthorizationControllers(context UserContext) *DefaultAuthorizationContr
 func (c *DefaultAuthorizationControllers) Login() controllers.Controller {
 	return func(w http.ResponseWriter, r *http.Request) {
 		reqBody, _ := ioutil.ReadAll(r.Body)
-		loginRequestUser := LoginRequest{}
+		loginRequestUser := models.LoginRequest{}
 		json.Unmarshal(reqBody, &loginRequestUser)
 
-		if c.Context == nil {
+		if c.UserAdapter == nil {
 			w.WriteHeader(http.StatusUnauthorized)
-			logger.Error("There was an error during loggin, context is null")
+			logger.Error("There was an error during login, context is null")
 			return
 		}
-		user := c.Context.GetUserByEmail(loginRequestUser.Username)
+		user := c.UserAdapter.GetUserByEmail(loginRequestUser.Username)
 
-		if user == nil {
+		if user.ID == "" {
 			w.WriteHeader(http.StatusUnauthorized)
-			logger.Error("There was an error during loggin, user %v was not found", user.Username)
+			if user.DisplayName != "" {
+				logger.Error("There was an error during login, user %v was not found", user.DisplayName)
+			} else if len(reqBody) == 0 {
+				logger.Error("There was an error during login, body was empty")
+			} else {
+				logger.Error("There was an error during login, unknown error")
+			}
 			return
 		}
 
@@ -66,8 +72,8 @@ func (c *DefaultAuthorizationControllers) Login() controllers.Controller {
 			return
 		}
 
-		token, expires := security.GenerateUserToken(user.Email)
-		response := LoginResponse{
+		token, expires := identity_jwt.GenerateUserToken(*user)
+		response := models.LoginResponse{
 			AccessToken: string(token),
 			Expiring:    expires,
 		}
@@ -83,7 +89,7 @@ func (c *DefaultAuthorizationControllers) Validate() controllers.Controller {
 		token, valid := security.GetAuthorizationToken(r.Header)
 
 		if !valid {
-			response := LoginErrorResponse{
+			response := models.LoginErrorResponse{
 				Code:    "404",
 				Error:   "Token Not Found",
 				Message: "The JWT token was not found or the header was malformed, please check your authorization header",
@@ -96,7 +102,7 @@ func (c *DefaultAuthorizationControllers) Validate() controllers.Controller {
 		}
 
 		if !security.ValidateToken(token) {
-			response := LoginErrorResponse{
+			response := models.LoginErrorResponse{
 				Code:    "401",
 				Error:   "Invalid Token",
 				Message: "The JWT token is not valid",
@@ -108,7 +114,7 @@ func (c *DefaultAuthorizationControllers) Validate() controllers.Controller {
 			return
 		}
 
-		response := LoginResponse{
+		response := models.LoginResponse{
 			AccessToken: token,
 		}
 

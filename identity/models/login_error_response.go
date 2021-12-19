@@ -1,4 +1,4 @@
-package identity
+package models
 
 // LoginErrorResponse entity
 type LoginErrorResponse struct {

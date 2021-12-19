@@ -14,9 +14,11 @@ import (
 	"net/http"
 
 	"github.com/cjlapao/common-go/controllers"
-	"github.com/cjlapao/common-go/executionctx"
+	"github.com/cjlapao/common-go/execution_context"
 	"github.com/cjlapao/common-go/helper"
-	"github.com/cjlapao/common-go/identity"
+	authAdapters "github.com/cjlapao/common-go/identity/adapters"
+	authControllers "github.com/cjlapao/common-go/identity/controllers"
+	"github.com/cjlapao/common-go/identity/identity_database_adapter"
 	logger "github.com/cjlapao/common-go/log"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -38,7 +40,7 @@ type HttpListenerOptions struct {
 // HttpListener HttpListener structure
 type HttpListener struct {
 	Router            *mux.Router
-	Services          *executionctx.ServiceProvider
+	Context           *execution_context.Context
 	Logger            *logger.Logger
 	Options           *HttpListenerOptions
 	Controllers       []controllers.Controller
@@ -60,13 +62,13 @@ func NewHttpListener() *HttpListener {
 	}
 
 	listener := HttpListener{
-		Services: executionctx.GetServiceProvider(),
-		Router:   mux.NewRouter().StrictSlash(true),
-		Servers:  make([]*http.Server, 0),
+		Context: execution_context.Get(),
+		Router:  mux.NewRouter().StrictSlash(true),
+		Servers: make([]*http.Server, 0),
 	}
 
 	listener.shutdownRequest = make(chan bool)
-	listener.Logger = listener.Services.Logger
+	listener.Logger = listener.Context.Services.Logger
 
 	listener.Controllers = make([]controllers.Controller, 0)
 	listener.DefaultAdapters = make([]controllers.Adapter, 0)
@@ -108,24 +110,24 @@ func (l *HttpListener) WithDefaultAuthentication() *HttpListener {
 	if l.Options.UseAuthBackend {
 		l.Logger.Info("Found MongoDB connection string, enabling MongoDb auth backend...")
 	}
-	defaultAuthControllers := identity.NewDefaultAuthorizationControllers()
+	defaultAuthControllers := authControllers.NewDefaultAuthorizationControllers()
 
 	l.AddController(defaultAuthControllers.Login(), "/login", "POST")
 	l.AddController(defaultAuthControllers.Validate(), "/validate", "GET")
-	l.DefaultAdapters = append([]controllers.Adapter{identity.EndAuthorizationAdapter()}, l.DefaultAdapters...)
+	l.DefaultAdapters = append([]controllers.Adapter{authAdapters.EndAuthorizationAdapter()}, l.DefaultAdapters...)
 	l.Options.EnableAuthentication = true
 	return l
 }
 
-func (l *HttpListener) WithAuthentication(context identity.UserContext) *HttpListener {
+func (l *HttpListener) WithAuthentication(context identity_database_adapter.UserDatabaseAdapter) *HttpListener {
 	if l.Options.UseAuthBackend {
 		l.Logger.Info("Found MongoDB connection string, enabling MongoDb auth backend...")
 	}
-	defaultAuthControllers := identity.NewAuthorizationControllers(context)
+	defaultAuthControllers := authControllers.NewAuthorizationControllers(context)
 
 	l.AddController(defaultAuthControllers.Login(), "/login", "POST")
 	l.AddController(defaultAuthControllers.Validate(), "/validate", "GET")
-	l.DefaultAdapters = append([]controllers.Adapter{identity.EndAuthorizationAdapter()}, l.DefaultAdapters...)
+	l.DefaultAdapters = append([]controllers.Adapter{authAdapters.EndAuthorizationAdapter()}, l.DefaultAdapters...)
 	l.Options.EnableAuthentication = true
 	return l
 }
@@ -160,7 +162,7 @@ func (l *HttpListener) AddAuthorizedController(c controllers.Controller, path st
 	}
 	adapters := make([]controllers.Adapter, 0)
 	adapters = append(adapters, l.DefaultAdapters...)
-	adapters = append(adapters, identity.AuthorizationAdapter())
+	adapters = append(adapters, authAdapters.AuthorizationAdapter())
 
 	if l.Options.ApiPrefix != "" {
 		path = l.Options.ApiPrefix + path
@@ -177,7 +179,7 @@ func (l *HttpListener) Start() {
 	originsOk := handlers.AllowedOrigins([]string{"*"})
 	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"})
 
-	l.Logger.Notice("Starting %v Go Rest API v%v", l.Services.Version.Name, l.Services.Version.String())
+	l.Logger.Notice("Starting %v Go Rest API v%v", l.Context.Services.Version.Name, l.Context.Services.Version.String())
 
 	done := make(chan bool)
 
@@ -269,13 +271,13 @@ func (l *HttpListener) WaitAndShutdown() {
 //region Private Methods
 func (l *HttpListener) getDefaultConfiguration() *HttpListenerOptions {
 	options := HttpListenerOptions{
-		HttpPort:                l.Services.Context.Configuration.GetString("HTTP_PORT"),
-		EnableTLS:               l.Services.Context.Configuration.GetBool("ENABLE_TLS"),
-		TLSPort:                 l.Services.Context.Configuration.GetString("TLS_PORT"),
-		TLSCertificate:          l.Services.Context.Configuration.GetBase64("TLS_CERTIFICATE"),
-		TLSPrivateKey:           l.Services.Context.Configuration.GetBase64("TLS_PRIVATE_KEY"),
-		DatabaseName:            l.Services.Context.Configuration.GetString("MONGODB_DATABASENAME"),
-		MongoDbConnectionString: l.Services.Context.Configuration.GetBase64("MONGODB_CONNECTION_STRING"),
+		HttpPort:                l.Context.Configuration.GetString("HTTP_PORT"),
+		EnableTLS:               l.Context.Configuration.GetBool("ENABLE_TLS"),
+		TLSPort:                 l.Context.Configuration.GetString("TLS_PORT"),
+		TLSCertificate:          l.Context.Configuration.GetBase64("TLS_CERTIFICATE"),
+		TLSPrivateKey:           l.Context.Configuration.GetBase64("TLS_PRIVATE_KEY"),
+		DatabaseName:            l.Context.Configuration.GetString("MONGODB_DATABASENAME"),
+		MongoDbConnectionString: l.Context.Configuration.GetBase64("MONGODB_CONNECTION_STRING"),
 	}
 
 	if helper.IsNilOrEmpty(options.HttpPort) {
@@ -290,7 +292,7 @@ func (l *HttpListener) getDefaultConfiguration() *HttpListenerOptions {
 		options.DatabaseName = "users"
 	}
 
-	apiPrefix := l.Services.Context.Configuration.GetString("API_PREFIX")
+	apiPrefix := l.Context.Configuration.GetString("API_PREFIX")
 	if apiPrefix == "" {
 		apiPrefix = "/"
 	}
@@ -308,7 +310,7 @@ func (l *HttpListener) getDefaultConfiguration() *HttpListenerOptions {
 
 func defaultHomepageController(w http.ResponseWriter, r *http.Request) {
 	response := DefaultHomepage{
-		CorrelationID: globalHttpListener.Services.Context.CorrelationId,
+		CorrelationID: globalHttpListener.Context.CorrelationId,
 		Timestamp:     fmt.Sprint(time.Now().Format(time.RFC850)),
 	}
 

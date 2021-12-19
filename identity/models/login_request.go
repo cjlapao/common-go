@@ -1,4 +1,4 @@
-package identity
+package models
 
 // LoginRequest entity
 type LoginRequest struct {

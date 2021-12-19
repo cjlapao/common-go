@@ -7,8 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cjlapao/common-go/helper"
-
 	loggerModule "github.com/cjlapao/common-go/log"
 
 	"github.com/pascaldekloe/jwt"
@@ -30,24 +28,6 @@ func SHA256Encode(value string) string {
 	hasher.Write(bytes)
 
 	return hex.EncodeToString(hasher.Sum(nil))
-}
-
-// GenerateUserToken generates a jwt user token
-func GenerateUserToken(email string) (string, string) {
-
-	var claims jwt.Claims
-
-	claims.Subject = email
-	claims.Issuer = Issuer
-	claims.Issued = jwt.NewNumericTime(time.Now().Round(time.Second))
-	claims.Expires = jwt.NewNumericTime(time.Now().Add(time.Hour * 1))
-	claims.Set = map[string]interface{}{"email_verified": false, "scope": "authentication"}
-
-	token, err := claims.HMACSign("HS256", []byte(PrivateKey))
-
-	helper.CheckError(err)
-
-	return string(token), claims.Expires.String()
 }
 
 func ValidateToken(token string) bool {

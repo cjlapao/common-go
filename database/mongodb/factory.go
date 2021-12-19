@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/cjlapao/common-go/database"
-	"github.com/cjlapao/common-go/executionctx"
+	"github.com/cjlapao/common-go/execution_context"
 	"github.com/cjlapao/common-go/log"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -15,7 +15,7 @@ import (
 type MongoFactory struct {
 	Client      *mongo.Client
 	Database    *mongo.Database
-	Context     *executionctx.Context
+	Context     *execution_context.Context
 	DatabaseCxt *database.DatabaseCtx
 	Logger      *log.Logger
 }
@@ -39,12 +39,12 @@ func (f *MongoFactory) WithDatabase(databaseName string) *MongoFactory {
 }
 
 // GetContext Gets the Execution context
-func (f *MongoFactory) GetContext() *executionctx.Context {
+func (f *MongoFactory) GetContext() *execution_context.Context {
 	if f.Context != nil {
 		return f.Context
 	}
 
-	f.Context = executionctx.GetContext()
+	f.Context = execution_context.Get()
 
 	return f.Context
 }

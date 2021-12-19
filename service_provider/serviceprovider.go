@@ -1,36 +1,36 @@
-package executionctx
+package service_provider
 
 import (
+	"github.com/cjlapao/common-go/configuration"
 	"github.com/cjlapao/common-go/log"
 	"github.com/cjlapao/common-go/version"
 )
 
 type ServiceProvider struct {
-	Context *Context
-	Version *version.Version
-	Logger  *log.Logger
+	Configuration *configuration.ConfigurationService
+	Version       *version.Version
+	Logger        *log.Logger
 }
 
 var globalProviderContainer *ServiceProvider
 
-func NewServiceProvider() *ServiceProvider {
+func New() *ServiceProvider {
 	if globalProviderContainer != nil {
 		globalProviderContainer = nil
-		NewContext()
 	}
 
 	globalProviderContainer = &ServiceProvider{}
-	globalProviderContainer.Context = GetContext()
 	globalProviderContainer.Logger = log.Get()
 	globalProviderContainer.Version = version.Get()
+	globalProviderContainer.Configuration = configuration.Get()
 	globalProviderContainer.Logger.UseTimestamp = true
 	return globalProviderContainer
 }
 
-func GetServiceProvider() *ServiceProvider {
+func Get() *ServiceProvider {
 	if globalProviderContainer != nil {
 		return globalProviderContainer
 	}
 
-	return NewServiceProvider()
+	return New()
 }
