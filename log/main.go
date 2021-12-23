@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/cjlapao/common-go/constants"
 	strcolor "github.com/cjlapao/common-go/strcolor"
 )
 
@@ -61,7 +62,7 @@ func Get() *Logger {
 		result.Loggers = []Log{}
 		result.AddCmdLogger()
 
-		debug := os.Getenv("DT_DEBUG")
+		debug := os.Getenv(constants.DEBUG_ENVIRONMENT)
 		if debug == "true" {
 			result.LogLevel = Debug
 		}
@@ -110,6 +111,18 @@ func (l *Logger) AddCmdLoggerWithTimestamp() {
 		logger.UseTimestamp(true)
 		l.Loggers = append(l.Loggers, logger)
 	}
+}
+
+func (l *Logger) EnableDebug() {
+	l.LogLevel = Debug
+}
+
+func (l *Logger) EnableTrace() {
+	l.LogLevel = Trace
+}
+
+func (l *Logger) EnableWarning() {
+	l.LogLevel = Warning
 }
 
 func (l *Logger) EnableTimestamp() {

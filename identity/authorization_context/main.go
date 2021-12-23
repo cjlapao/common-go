@@ -6,14 +6,18 @@ import (
 	"time"
 
 	"github.com/cjlapao/common-go/configuration"
-	"github.com/cjlapao/common-go/security"
+	"github.com/cjlapao/common-go/identity/jwt_keyvault"
+	"github.com/cjlapao/common-go/security/encryption"
 	"github.com/google/uuid"
 )
 
 type AuthorizationContext struct {
-	User          *ContextUser
-	CorrelationId string
-	Options       AuthorizationOptions
+	User              *ContextUser
+	CorrelationId     string
+	TenantId          string
+	Options           AuthorizationOptions
+	ValidationOptions AuthorizationValidationOptions
+	KeyVault          *jwt_keyvault.JwtKeyVaultService
 }
 
 var currentAuthorizationContext *AuthorizationContext
@@ -22,8 +26,17 @@ func NewFromUser(user *ContextUser) *AuthorizationContext {
 	currentAuthorizationContext = &AuthorizationContext{
 		User:          user,
 		CorrelationId: uuid.NewString(),
+		ValidationOptions: AuthorizationValidationOptions{
+			Audiences:     false,
+			ExpiryDate:    true,
+			Subject:       true,
+			Issuer:        true,
+			VerifiedEmail: false,
+			NotBefore:     false,
+		},
 	}
 
+	currentAuthorizationContext.KeyVault = jwt_keyvault.Get()
 	currentAuthorizationContext.WithDefaultOptions()
 
 	return currentAuthorizationContext
@@ -52,7 +65,6 @@ func (a *AuthorizationContext) WithDefaultOptions() *AuthorizationContext {
 		keyId = "_" + keyId
 	}
 	privateKey := config.GetString("JWT" + keyId + "_PRIVATE_KEY")
-	publicKey := config.GetString("JWT" + keyId + "_PUBLIC_KEY")
 
 	if issuer == "" {
 		issuer = "localhost"
@@ -76,42 +88,41 @@ func (a *AuthorizationContext) WithDefaultOptions() *AuthorizationContext {
 		Scope:         tokenScope,
 	}
 
+	a.Options.Audiences = make([]string, 0)
+	a.Options.Audiences = append(a.Options.Audiences, "http://localhost")
+
 	if privateKey == "" {
 		panic(errors.New("private key not found"))
 	}
+	keyId = strings.TrimLeft(keyId, "_")
+
 	switch strings.ToLower(authorizationType) {
 	case "hmac":
-		if privateKey == "" {
-			privateKey = "SomeRandomSecret"
-		}
 		if keySize == "" {
 			keySize = "256bit"
 		}
-		a.Options.SignatureType = security.HMAC
-		a.Options.SignatureSize = a.Options.SignatureSize.FromString(keySize)
-		a.Options.PrivateKey = tryDecodekey(privateKey)
+		var size encryption.EncryptionKeySize
+		size = size.FromString(keySize)
+		a.KeyVault.WithBase64HmacKey(keyId, privateKey, size)
 	case "ecdsa":
-		if publicKey == "" {
-			panic(errors.New("public key not found"))
-		}
-		if keySize == "" {
-			keySize = "256bit"
-		}
-		a.Options.SignatureType = security.ECDSA
-		a.Options.SignatureSize = a.Options.SignatureSize.FromString(keySize)
-		a.Options.PrivateKey = tryDecodekey(privateKey)
-		a.Options.PublicKey = tryDecodekey(publicKey)
+		a.KeyVault.WithBase64EcdsaKey(keyId, privateKey)
 	case "rsa":
-		if publicKey == "" {
-			panic(errors.New("public key not found"))
+		a.KeyVault.WithBase64RsaKey(keyId, privateKey)
+	}
+
+	return a
+}
+
+func (a *AuthorizationContext) WithAudience(audience string) *AuthorizationContext {
+	found := false
+	for _, inAudience := range a.Options.Audiences {
+		if strings.EqualFold(inAudience, audience) {
+			found = true
+			break
 		}
-		if keySize == "" {
-			keySize = "1024bit"
-		}
-		a.Options.SignatureType = security.RSA
-		a.Options.SignatureSize = a.Options.SignatureSize.FromString(keySize)
-		a.Options.PrivateKey = tryDecodekey(privateKey)
-		a.Options.PublicKey = tryDecodekey(publicKey)
+	}
+	if !found {
+		a.Options.Audiences = append(a.Options.Audiences, audience)
 	}
 
 	return a
@@ -123,13 +134,4 @@ func GetCurrent() *AuthorizationContext {
 	}
 
 	return nil
-}
-
-func tryDecodekey(value string) string {
-	decoded, err := security.DecodeBase64String(value)
-	if err == nil {
-		return decoded
-	} else {
-		return value
-	}
 }

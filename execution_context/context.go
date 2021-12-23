@@ -1,12 +1,12 @@
 package execution_context
 
 import (
-	"os"
 	"strings"
 
 	"github.com/cjlapao/common-go/cache"
 	"github.com/cjlapao/common-go/cache/jwt_token_cache"
 	"github.com/cjlapao/common-go/configuration"
+	"github.com/cjlapao/common-go/constants"
 	"github.com/cjlapao/common-go/helper"
 	"github.com/cjlapao/common-go/identity/authorization_context"
 	"github.com/cjlapao/common-go/service_provider"
@@ -44,13 +44,14 @@ func InitNewContext(init func() error) (*Context, error) {
 		Init:          init,
 	}
 
+	contextService.Configuration = configuration.Get()
 	contextService.Caches = cache.Get()
 	contextService.TokenCache = jwt_token_cache.New()
 	contextService.CorrelationId = uuid.NewString()
 	contextService.Services = service_provider.Get()
 
-	environment := os.Getenv("CJ_ENVIRONMENT")
-	debug := os.Getenv("CJ_ENABLE_DEBUG")
+	environment := contextService.Configuration.GetString(constants.ENVIRONMENT)
+	debug := contextService.Configuration.GetBool(constants.DEBUG_ENVIRONMENT)
 
 	if !helper.IsNilOrEmpty(environment) {
 		if strings.ToLower(environment) == "development" {
@@ -77,13 +78,11 @@ func InitNewContext(init func() error) (*Context, error) {
 		contextService.Environment = "Production"
 	}
 
-	if !helper.IsNilOrEmpty(debug) && strings.ToLower(debug) == "true" {
+	if debug {
 		contextService.Debug = true
 	} else {
 		contextService.Debug = false
 	}
-
-	contextService.Configuration = configuration.Get()
 
 	if contextService.Init != nil {
 		err := contextService.Init()
@@ -93,10 +92,19 @@ func InitNewContext(init func() error) (*Context, error) {
 		}
 	}
 
+	return contextService, nil
+}
+
+func (c *Context) WithDefaultAuthorization() *Context {
 	// Authorization Context
 	contextService.Authorization = authorization_context.New()
+	return c
+}
 
-	return contextService, nil
+func (c *Context) WithAuthorization(options authorization_context.AuthorizationOptions) *Context {
+	// Authorization Context
+	contextService.Authorization = authorization_context.New().WithOptions(options)
+	return c
 }
 
 func Get() *Context {

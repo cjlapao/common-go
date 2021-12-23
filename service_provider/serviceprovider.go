@@ -2,6 +2,7 @@ package service_provider
 
 import (
 	"github.com/cjlapao/common-go/configuration"
+	"github.com/cjlapao/common-go/constants"
 	"github.com/cjlapao/common-go/log"
 	"github.com/cjlapao/common-go/version"
 )
@@ -23,7 +24,13 @@ func New() *ServiceProvider {
 	globalProviderContainer.Logger = log.Get()
 	globalProviderContainer.Version = version.Get()
 	globalProviderContainer.Configuration = configuration.Get()
-	globalProviderContainer.Logger.UseTimestamp = true
+	globalProviderContainer.Logger.EnableTimestamp()
+	if globalProviderContainer.Configuration.GetBool(constants.DEBUG_ENVIRONMENT) {
+		globalProviderContainer.Logger.EnableDebug()
+	}
+	if globalProviderContainer.Configuration.GetBool(constants.TRACE_ENVIRONMENT) {
+		globalProviderContainer.Logger.EnableTrace()
+	}
 	return globalProviderContainer
 }
 

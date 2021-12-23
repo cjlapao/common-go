@@ -120,15 +120,20 @@ func (l *HttpListener) WithDefaultAuthentication() *HttpListener {
 }
 
 func (l *HttpListener) WithAuthentication(context identity_database_adapter.UserDatabaseAdapter) *HttpListener {
-	if l.Options.UseAuthBackend {
-		l.Logger.Info("Found MongoDB connection string, enabling MongoDb auth backend...")
-	}
-	defaultAuthControllers := authControllers.NewAuthorizationControllers(context)
+	ctx := execution_context.Get()
+	if ctx.Authorization != nil {
+		if l.Options.UseAuthBackend {
+			l.Logger.Info("Found MongoDB connection string, enabling MongoDb auth backend...")
+		}
+		defaultAuthControllers := authControllers.NewAuthorizationControllers(context)
 
-	l.AddController(defaultAuthControllers.Login(), "/login", "POST")
-	l.AddController(defaultAuthControllers.Validate(), "/validate", "GET")
-	l.DefaultAdapters = append([]controllers.Adapter{authAdapters.EndAuthorizationAdapter()}, l.DefaultAdapters...)
-	l.Options.EnableAuthentication = true
+		l.AddController(defaultAuthControllers.Login(), "/login", "POST")
+		l.AddController(defaultAuthControllers.Validate(), "/validate", "GET")
+		l.DefaultAdapters = append([]controllers.Adapter{authAdapters.EndAuthorizationAdapter()}, l.DefaultAdapters...)
+		l.Options.EnableAuthentication = true
+	} else {
+		l.Logger.Error("No authorization context found, ignoring")
+	}
 	return l
 }
 

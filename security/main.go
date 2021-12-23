@@ -7,12 +7,11 @@ import (
 	"strings"
 	"time"
 
-	loggerModule "github.com/cjlapao/common-go/log"
-
+	"github.com/cjlapao/common-go/log"
 	"github.com/pascaldekloe/jwt"
 )
 
-var logger = loggerModule.Get()
+var logger = log.Get()
 
 // Security Constants
 const (
