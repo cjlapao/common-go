@@ -147,6 +147,11 @@ func (kv *JwtKeyVaultService) WithHmacKey(id string, privateKey string, size enc
 
 func (kv *JwtKeyVaultService) SetDefaultKey(id string) {
 	if kv.keyExists(id) {
+		// Removing all defaults from other keys
+		for _, key := range kv.Keys {
+			key.IsDefault = false
+		}
+
 		for _, key := range kv.Keys {
 			if strings.EqualFold(key.ID, id) {
 				key.IsDefault = true
@@ -159,6 +164,16 @@ func (kv *JwtKeyVaultService) SetDefaultKey(id string) {
 func (kv *JwtKeyVaultService) GetDefaultKey() *JwtKeyVaultItem {
 	for _, key := range kv.Keys {
 		if key.IsDefault {
+			return key
+		}
+	}
+
+	return nil
+}
+
+func (kv *JwtKeyVaultService) GetKey(id string) *JwtKeyVaultItem {
+	for _, key := range kv.Keys {
+		if strings.EqualFold(key.ID, id) {
 			return key
 		}
 	}

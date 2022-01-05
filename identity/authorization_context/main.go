@@ -88,12 +88,10 @@ func (a *AuthorizationContext) WithDefaultOptions() *AuthorizationContext {
 		Scope:         tokenScope,
 	}
 
-	a.Options.Audiences = make([]string, 0)
-	a.Options.Audiences = append(a.Options.Audiences, "http://localhost")
-
 	if privateKey == "" {
 		panic(errors.New("private key not found"))
 	}
+
 	keyId = strings.TrimLeft(keyId, "_")
 
 	switch strings.ToLower(authorizationType) {
@@ -124,6 +122,24 @@ func (a *AuthorizationContext) WithAudience(audience string) *AuthorizationConte
 	if !found {
 		a.Options.Audiences = append(a.Options.Audiences, audience)
 	}
+
+	return a
+}
+
+func (a *AuthorizationContext) WithIssuer(issuer string) *AuthorizationContext {
+	a.Options.Issuer = issuer
+
+	return a
+}
+
+func (a *AuthorizationContext) WithDuration(tokenDuration int) *AuthorizationContext {
+	a.Options.TokenDuration = time.Minute * time.Duration(tokenDuration)
+
+	return a
+}
+
+func (a *AuthorizationContext) WithScope(scope string) *AuthorizationContext {
+	a.Options.Scope = scope
 
 	return a
 }

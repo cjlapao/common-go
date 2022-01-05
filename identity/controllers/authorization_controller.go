@@ -4,11 +4,12 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/cjlapao/common-go/controllers"
 	"github.com/cjlapao/common-go/identity/authorization_context"
 	"github.com/cjlapao/common-go/identity/identity_database_adapter"
-	"github.com/cjlapao/common-go/identity/identity_jwt"
+	"github.com/cjlapao/common-go/identity/jwt"
 	"github.com/cjlapao/common-go/identity/models"
 	"github.com/cjlapao/common-go/security"
 )
@@ -72,10 +73,16 @@ func (c *DefaultAuthorizationControllers) Login() controllers.Controller {
 			return
 		}
 
-		token, expires := identity_jwt.GenerateUserToken(*user)
+		token, err := jwt.GenerateDefaultUserToken(*user)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			logger.Error("There was an error during login, error generating the key")
+			return
+		}
+
 		response := models.LoginResponse{
-			AccessToken: string(token),
-			Expiring:    expires,
+			AccessToken: token.Token,
+			Expiring:    token.ExpiresAt.Format(time.RFC3339),
 		}
 		logger.Success("User %v was logged in successfully", user.Username)
 

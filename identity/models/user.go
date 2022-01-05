@@ -4,17 +4,18 @@ import "github.com/google/uuid"
 
 // User entity
 type User struct {
-	ID           string      `json:"id" bson:"_id"`
-	Email        string      `json:"email" bson:"email"`
-	Username     string      `json:"userName" bson:"userName"`
-	FirstName    string      `json:"firstName" bson:"firstName"`
-	LastName     string      `json:"lastName" bson:"lastName"`
-	DisplayName  string      `json:"displayName" bson:"displayName"`
-	Password     string      `json:"password" bson:"password"`
-	Token        string      `json:"-" bson:"-"`
-	RefreshToken string      `json:"-" bson:"-"`
-	Roles        []UserRole  `json:"roles" bson:"roles"`
-	Claims       []UserClaim `json:"claims" bson:"claims"`
+	ID               string      `json:"id" bson:"_id"`
+	Email            string      `json:"email" bson:"email"`
+	Username         string      `json:"userName" bson:"userName"`
+	FirstName        string      `json:"firstName" bson:"firstName"`
+	LastName         string      `json:"lastName" bson:"lastName"`
+	DisplayName      string      `json:"displayName" bson:"displayName"`
+	Password         string      `json:"password" bson:"password"`
+	Token            string      `json:"-" bson:"-"`
+	RefreshToken     string      `json:"refreshToken" bson:"refreshToken"`
+	EmailVerifyToken string      `json:"emailVerifyToken" bson:"emailVerifyToken"`
+	Roles            []UserRole  `json:"roles" bson:"roles"`
+	Claims           []UserClaim `json:"claims" bson:"claims"`
 }
 
 func NewUser() *User {
