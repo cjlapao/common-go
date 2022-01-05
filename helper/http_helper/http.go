@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/cjlapao/common-go/helper"
 	"github.com/cjlapao/common-go/language"
@@ -94,4 +95,13 @@ func GetHttpRequestBoolValue(r *http.Request, key string, defValue bool) bool {
 	}
 
 	return value
+}
+
+func GetAuthorizationToken(request http.Header) (string, bool) {
+	authHeader := strings.Split(request.Get("Authorization"), "Bearer ")
+	if len(authHeader) != 2 {
+		return "", false
+	}
+
+	return authHeader[1], true
 }

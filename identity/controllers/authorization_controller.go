@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/cjlapao/common-go/controllers"
+	"github.com/cjlapao/common-go/helper/http_helper"
+	"github.com/cjlapao/common-go/identity"
 	"github.com/cjlapao/common-go/identity/authorization_context"
 	"github.com/cjlapao/common-go/identity/identity_database_adapter"
 	"github.com/cjlapao/common-go/identity/jwt"
@@ -80,10 +82,15 @@ func (c *DefaultAuthorizationControllers) Login() controllers.Controller {
 			return
 		}
 
+		c.UserAdapter.UpdateUserRefreshToken(user.ID, token.RefreshToken)
+
 		response := models.LoginResponse{
-			AccessToken: token.Token,
-			Expiring:    token.ExpiresAt.Format(time.RFC3339),
+			AccessToken:  token.Token,
+			RefreshToken: token.RefreshToken,
+			ExpiresIn:    token.ExpiresAt,
+			CreatedAt:    time.Now(),
 		}
+
 		logger.Success("User %v was logged in successfully", user.Username)
 
 		json.NewEncoder(w).Encode(response)
@@ -93,13 +100,12 @@ func (c *DefaultAuthorizationControllers) Login() controllers.Controller {
 // Validate Validate a token for a valid user
 func (c *DefaultAuthorizationControllers) Validate() controllers.Controller {
 	return func(w http.ResponseWriter, r *http.Request) {
-		token, valid := security.GetAuthorizationToken(r.Header)
+		token, valid := http_helper.GetAuthorizationToken(r.Header)
 
 		if !valid {
 			response := models.LoginErrorResponse{
-				Code:    "404",
-				Error:   "Token Not Found",
-				Message: "The JWT token was not found or the header was malformed, please check your authorization header",
+				Error:            "Token Not Found",
+				ErrorDescription: "The JWT token was not found or the header was malformed, please check your authorization header",
 			}
 
 			w.WriteHeader(http.StatusUnauthorized)
@@ -110,9 +116,48 @@ func (c *DefaultAuthorizationControllers) Validate() controllers.Controller {
 
 		if !security.ValidateToken(token) {
 			response := models.LoginErrorResponse{
-				Code:    "401",
-				Error:   "Invalid Token",
-				Message: "The JWT token is not valid",
+				Error:            "Invalid Token",
+				ErrorDescription: "The JWT token is not valid",
+			}
+
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(response)
+			logger.Error("There was an error validating token")
+			return
+		}
+
+		response := models.LoginResponse{
+			AccessToken: token,
+		}
+
+		logger.Success("Token was validated successfully")
+		json.NewEncoder(w).Encode(response)
+	}
+}
+
+// Validate Validate a token for a valid user
+func (c *DefaultAuthorizationControllers) Introspection() controllers.Controller {
+	return func(w http.ResponseWriter, r *http.Request) {
+		token, valid := http_helper.GetAuthorizationToken(r.Header)
+
+		if !valid {
+			response := models.LoginErrorResponse{
+				Error:            models.TokenNotFoundError,
+				ErrorDescription: "The JWT token was not found or the header was malformed, please check your authorization header",
+			}
+
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(response)
+			logger.Error("There was an error validating token")
+			return
+		}
+
+		isTokenValid, err := jwt.ValidateUserToken(token, identity.ApplicationTokenScope)
+
+		if !isTokenValid {
+			response := models.LoginErrorResponse{
+				Error:            models.InvalidTokenError,
+				ErrorDescription: err.Error(),
 			}
 
 			w.WriteHeader(http.StatusUnauthorized)

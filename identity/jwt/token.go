@@ -19,7 +19,8 @@ import (
 )
 
 type RawCertificateHeader struct {
-	X5T string `json:"x5t"`
+	KeyId string `json:"kid,omitempty"`
+	X5T   string `json:"x5t,omitempty"`
 }
 
 // GenerateDefaultUserToken generates a jwt user token with the default audiences in the context
@@ -61,7 +62,7 @@ func GenerateUserTokenForKeyAndAudiences(keyId string, user models.User, audienc
 
 	// Adding Custom Claims to the token
 	userClaims := make(map[string]interface{})
-	userClaims["scope"] = ctx.Authorization.Options.Scope
+	userClaims["scp"] = identity.ApplicationTokenScope
 	userClaims["uid"] = strings.ToLower(user.ID)
 	userClaims["name"] = user.DisplayName
 	userClaims["given_name"] = user.FirstName
@@ -117,7 +118,7 @@ func GenerateUserTokenForKeyAndAudiences(keyId string, user models.User, audienc
 	}
 
 	refreshToken, err := GenerateRefreshToken(keyId, user)
-	if err != nil {
+	if err == nil {
 		userToken.RefreshToken = refreshToken
 	}
 
@@ -142,7 +143,7 @@ func GenerateRefreshToken(keyId string, user models.User) (string, error) {
 
 	// Custom Claims
 	userClaims := make(map[string]interface{})
-	userClaims["scope"] = identity.RefreshTokenScope
+	userClaims["scp"] = identity.RefreshTokenScope
 	userClaims["name"] = user.DisplayName
 	userClaims["given_name"] = user.FirstName
 	userClaims["family_name"] = user.LastName
@@ -195,6 +196,67 @@ func GenerateVerifyEmailToken(keyId string, user models.User) string {
 	return refreshToken
 }
 
+func ValidateUserToken(token string, scope string) (bool, error) {
+	if token == "" {
+		return false, errors.New("token cannot be empty")
+	}
+
+	ctx := execution_context.Get()
+	var tokenBytes []byte
+	var verifiedToken *jwt.Claims
+	tokenBytes = []byte(token)
+	var err error
+	var signKey *jwt_keyvault.JwtKeyVaultItem
+	rawToken, err := jwt.ParseWithoutCheck(tokenBytes)
+	if err != nil {
+		return false, err
+	}
+
+	signKey = ctx.Authorization.KeyVault.GetKey(rawToken.KeyID)
+	// Verifying signature using the key that was sign with
+	switch kt := signKey.PrivateKey.(type) {
+	case *ecdsa.PrivateKey:
+		key := kt.PublicKey
+		verifiedToken, err = jwt.ECDSACheck(tokenBytes, &key)
+		if err != nil {
+			return false, err
+		}
+	case string:
+		verifiedToken, err = jwt.HMACCheck(tokenBytes, []byte(kt))
+		if err != nil {
+			return false, err
+		}
+	case *rsa.PrivateKey:
+		key := kt.PublicKey
+		verifiedToken, err = jwt.RSACheck(tokenBytes, &key)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	tokenScope, _ := verifiedToken.String("scp")
+	if !strings.EqualFold(scope, tokenScope) {
+		return false, errors.New("token scope is not valid")
+	}
+
+	if verifiedToken.NotBefore.Time().After(time.Now()) {
+		return false, errors.New("token is not yet valid")
+	}
+
+	// Validating expiry token
+	if !verifiedToken.Valid(time.Now()) {
+		return false, errors.New("token is expired")
+	}
+
+	if ctx.Authorization.ValidationOptions.Issuer {
+		if !strings.EqualFold(verifiedToken.Issuer, ctx.Authorization.Options.Issuer) {
+			return false, errors.New("Token is not valid for issuer " + verifiedToken.Issuer)
+		}
+	}
+
+	return true, nil
+}
+
 func signToken(keyId string, claims jwt.Claims) (string, error) {
 	ctx := execution_context.Get()
 	var rawToken []byte
@@ -210,15 +272,15 @@ func signToken(keyId string, claims jwt.Claims) (string, error) {
 		logger.Error("There was an error signing the token with key %v, it was not found int the key vault", keyId)
 		return "", err
 	}
-
-	// Adding extra headers for some signing cases
-	extraHeaders, _ := json.Marshal(RawCertificateHeader{
-		X5T: signKey.ID,
-	})
-
+	var extraHeaders []byte
 	// Signing the token using the key encryption type
 	switch kt := signKey.PrivateKey.(type) {
 	case *ecdsa.PrivateKey:
+		// Adding extra headers for some signing cases
+		extraHeaders, _ = json.Marshal(RawCertificateHeader{
+			KeyId: signKey.ID,
+			X5T:   signKey.Thumbprint,
+		})
 		switch signKey.Size {
 		case encryption.Bit256:
 			rawToken, err = claims.ECDSASign("ES256", kt, extraHeaders)
@@ -228,6 +290,10 @@ func signToken(keyId string, claims jwt.Claims) (string, error) {
 			rawToken, err = claims.ECDSASign("ES512", kt, extraHeaders)
 		}
 	case string:
+		// Adding extra headers for some signing cases
+		extraHeaders, _ = json.Marshal(RawCertificateHeader{
+			KeyId: signKey.ID,
+		})
 		switch signKey.Size {
 		case encryption.Bit256:
 			rawToken, err = claims.HMACSign("HS256", []byte(kt))
@@ -237,6 +303,11 @@ func signToken(keyId string, claims jwt.Claims) (string, error) {
 			rawToken, err = claims.HMACSign("HS512", []byte(kt))
 		}
 	case *rsa.PrivateKey:
+		// Adding extra headers for some signing cases
+		extraHeaders, _ = json.Marshal(RawCertificateHeader{
+			KeyId: signKey.ID,
+			X5T:   signKey.Thumbprint,
+		})
 		switch signKey.Size {
 		case encryption.Bit256:
 			rawToken, err = claims.RSASign("RS256", kt, extraHeaders)

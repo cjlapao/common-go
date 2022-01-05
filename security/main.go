@@ -4,9 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
-	"strings"
 	"time"
 
+	"github.com/cjlapao/common-go/helper/http_helper"
 	"github.com/cjlapao/common-go/log"
 	"github.com/pascaldekloe/jwt"
 )
@@ -50,21 +50,10 @@ func ValidateToken(token string) bool {
 	return true
 }
 
-func GetAuthorizationToken(request http.Header) (string, bool) {
-	authHeader := strings.Split(request.Get("Authorization"), "Bearer ")
-	if len(authHeader) != 2 {
-		return "", false
-	}
-
-	logger.Debug("Token: " + authHeader[1])
-
-	return authHeader[1], true
-}
-
 func AuthenticateMiddleware(target http.HandlerFunc) http.Handler {
 	next := http.Handler(target)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, valid := GetAuthorizationToken(r.Header)
+		token, valid := http_helper.GetAuthorizationToken(r.Header)
 		if !valid {
 			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte("Unauthorized"))

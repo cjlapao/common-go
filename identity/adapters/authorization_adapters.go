@@ -6,6 +6,7 @@ import (
 
 	"github.com/cjlapao/common-go/controllers"
 	"github.com/cjlapao/common-go/execution_context"
+	"github.com/cjlapao/common-go/helper/http_helper"
 	"github.com/cjlapao/common-go/identity/authorization_context"
 	"github.com/cjlapao/common-go/identity/models"
 	"github.com/cjlapao/common-go/log"
@@ -21,7 +22,7 @@ func AuthorizationAdapter() controllers.Adapter {
 			logger.Info("Authentication Layer Started")
 
 			// Getting the token for validation
-			jwt_token, valid := security.GetAuthorizationToken(r.Header)
+			jwt_token, valid := http_helper.GetAuthorizationToken(r.Header)
 			if !valid {
 				authorized = false
 			}
@@ -43,9 +44,8 @@ func AuthorizationAdapter() controllers.Adapter {
 				logger.Info("User " + user.DisplayName + " was authenticated successfully.")
 			} else {
 				response := models.LoginErrorResponse{
-					Code:    "401",
-					Error:   "Token is invalid",
-					Message: "The token  is invalid",
+					Error:            models.InvalidTokenError,
+					ErrorDescription: "The token is invalid",
 				}
 
 				w.WriteHeader(http.StatusUnauthorized)

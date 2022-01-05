@@ -113,7 +113,7 @@ func (l *HttpListener) WithDefaultAuthentication() *HttpListener {
 	defaultAuthControllers := authControllers.NewDefaultAuthorizationControllers()
 
 	l.AddController(defaultAuthControllers.Login(), "/login", "POST")
-	l.AddController(defaultAuthControllers.Validate(), "/validate", "GET")
+	l.AddController(defaultAuthControllers.Introspection(), "/token/introspect", "POST")
 	l.DefaultAdapters = append([]controllers.Adapter{authAdapters.EndAuthorizationAdapter()}, l.DefaultAdapters...)
 	l.Options.EnableAuthentication = true
 	return l
@@ -128,7 +128,7 @@ func (l *HttpListener) WithAuthentication(context identity_database_adapter.User
 		defaultAuthControllers := authControllers.NewAuthorizationControllers(context)
 
 		l.AddController(defaultAuthControllers.Login(), "/login", "POST")
-		l.AddController(defaultAuthControllers.Validate(), "/validate", "GET")
+		l.AddController(defaultAuthControllers.Introspection(), "/token/introspect", "POST")
 		l.DefaultAdapters = append([]controllers.Adapter{authAdapters.EndAuthorizationAdapter()}, l.DefaultAdapters...)
 		l.Options.EnableAuthentication = true
 	} else {

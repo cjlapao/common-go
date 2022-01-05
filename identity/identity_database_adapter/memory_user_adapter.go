@@ -57,3 +57,37 @@ func (c *MemoryUserAdapter) GetUserByEmail(email string) *models.User {
 func (c *MemoryUserAdapter) UpsertUser(user models.User) {
 	c.Users = append(c.Users, user)
 }
+
+func (c *MemoryUserAdapter) GetUserRefreshToken(id string) *string {
+	user := c.GetUserById(id)
+	token := ""
+	if user != nil {
+		token = user.RefreshToken
+	}
+
+	return &token
+}
+
+func (c *MemoryUserAdapter) UpdateUserRefreshToken(id string, token string) {
+	user := c.GetUserById(id)
+	if user != nil {
+		user.RefreshToken = token
+	}
+}
+
+func (c *MemoryUserAdapter) GetUserEmailVerifyToken(id string) *string {
+	user := c.GetUserById(id)
+	token := ""
+	if user != nil {
+		token = user.EmailVerifyToken
+	}
+
+	return &token
+}
+
+func (c *MemoryUserAdapter) UpdateUserEmailVerifyToken(id string, token string) {
+	user := c.GetUserById(id)
+	if user != nil {
+		user.EmailVerifyToken = token
+	}
+}
