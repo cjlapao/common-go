@@ -182,72 +182,74 @@ func printMessage(format string, level string, isTask bool, isComplete bool, use
 
 	formatedWords := make([]interface{}, len(words))
 	for i := range words {
-		words[i] = strings.TrimSpace(words[i])
-		words[i] = strings.ReplaceAll(words[i], "\n\n", "\n")
-		if words[i][0] == 27 {
-			switch strings.ToLower(level) {
-			case "success":
-				if isPipeline {
-					words[i] += "\033[" + fmt.Sprint(SuccessColor) + "m"
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(SuccessColor) + "m"
-				}
-			case "warn":
-				if isPipeline {
-					if !isTask {
-						words[i] += "\033[" + fmt.Sprint(WarningColor) + "m"
+		if words[i] != "" {
+			words[i] = strings.TrimSpace(words[i])
+			words[i] = strings.ReplaceAll(words[i], "\n\n", "\n")
+			if words[i][0] == 27 {
+				switch strings.ToLower(level) {
+				case "success":
+					if isPipeline {
+						words[i] += "\033[" + fmt.Sprint(SuccessColor) + "m"
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(SuccessColor) + "m"
 					}
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(WarningColor) + "m"
-				}
-			case "error":
-				if isPipeline {
-					if !isTask {
-						words[i] += "\033[" + fmt.Sprint(ErrorColor) + "m"
+				case "warn":
+					if isPipeline {
+						if !isTask {
+							words[i] += "\033[" + fmt.Sprint(WarningColor) + "m"
+						}
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(WarningColor) + "m"
 					}
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(ErrorColor) + "m"
+				case "error":
+					if isPipeline {
+						if !isTask {
+							words[i] += "\033[" + fmt.Sprint(ErrorColor) + "m"
+						}
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(ErrorColor) + "m"
+					}
+				case "debug":
+					if isPipeline {
+						words[i] += "\033[" + fmt.Sprint(DebugColor) + "m"
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(DebugColor) + "m"
+					}
+				case "trace":
+					if isPipeline {
+						words[i] += "\033[" + fmt.Sprint(TraceColor) + "m"
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(TraceColor) + "m"
+					}
+				case "info":
+					if isPipeline {
+						words[i] += "\033[" + fmt.Sprint(InfoColor) + "m"
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(InfoColor) + "m"
+					}
+				case "notice":
+					if isPipeline {
+						words[i] += "\033[" + fmt.Sprint(NoticeColor) + "m"
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(NoticeColor) + "m"
+					}
+				case "command":
+					if isPipeline {
+						words[i] += "\033[" + fmt.Sprint(CommandColor) + "m"
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(CommandColor) + "m"
+					}
+				case "disabled":
+					if isPipeline {
+						words[i] += "\033[" + fmt.Sprint(DisabledColor) + "m"
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(DisabledColor) + "m"
+					}
 				}
-			case "debug":
-				if isPipeline {
-					words[i] += "\033[" + fmt.Sprint(DebugColor) + "m"
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(DebugColor) + "m"
-				}
-			case "trace":
-				if isPipeline {
-					words[i] += "\033[" + fmt.Sprint(TraceColor) + "m"
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(TraceColor) + "m"
-				}
-			case "info":
-				if isPipeline {
-					words[i] += "\033[" + fmt.Sprint(InfoColor) + "m"
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(InfoColor) + "m"
-				}
-			case "notice":
-				if isPipeline {
-					words[i] += "\033[" + fmt.Sprint(NoticeColor) + "m"
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(NoticeColor) + "m"
-				}
-			case "command":
-				if isPipeline {
-					words[i] += "\033[" + fmt.Sprint(CommandColor) + "m"
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(CommandColor) + "m"
-				}
-			case "disabled":
-				if isPipeline {
-					words[i] += "\033[" + fmt.Sprint(DisabledColor) + "m"
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(DisabledColor) + "m"
-				}
+				formatedWords[i] = words[i]
+			} else {
+				formatedWords[i] = words[i]
 			}
-			formatedWords[i] = words[i]
-		} else {
-			formatedWords[i] = words[i]
 		}
 	}
 

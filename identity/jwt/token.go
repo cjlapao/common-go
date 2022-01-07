@@ -9,19 +9,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cjlapao/common-go/cryptorand"
 	"github.com/cjlapao/common-go/execution_context"
 	"github.com/cjlapao/common-go/identity"
 	"github.com/cjlapao/common-go/identity/jwt_keyvault"
 	"github.com/cjlapao/common-go/identity/models"
 	"github.com/cjlapao/common-go/security/encryption"
-	"github.com/google/uuid"
 	"github.com/pascaldekloe/jwt"
 )
-
-type RawCertificateHeader struct {
-	KeyId string `json:"kid,omitempty"`
-	X5T   string `json:"x5t,omitempty"`
-}
 
 // GenerateDefaultUserToken generates a jwt user token with the default audiences in the context
 // It returns a user token object and an error if it exists
@@ -56,13 +51,15 @@ func GenerateUserTokenForKeyAndAudiences(keyId string, user models.User, audienc
 	userTokenClaims.Subject = user.Email
 	userTokenClaims.Issuer = ctx.Authorization.Options.Issuer
 	userTokenClaims.Issued = jwt.NewNumericTime(nowSkew)
-	userTokenClaims.NotBefore = jwt.NewNumericTime(nowNegativeSkew)
+	if ctx.Authorization.ValidationOptions.NotBefore {
+		userTokenClaims.NotBefore = jwt.NewNumericTime(nowNegativeSkew)
+	}
 	userTokenClaims.Expires = jwt.NewNumericTime(validUntil)
-	userTokenClaims.ID = uuid.NewString()
+	userTokenClaims.ID = cryptorand.GenerateAlphaNumericRandomString(60)
 
 	// Adding Custom Claims to the token
 	userClaims := make(map[string]interface{})
-	userClaims["scp"] = identity.ApplicationTokenScope
+	userClaims["scope"] = identity.ApplicationTokenScope
 	userClaims["uid"] = strings.ToLower(user.ID)
 	userClaims["name"] = user.DisplayName
 	userClaims["given_name"] = user.FirstName
@@ -70,7 +67,7 @@ func GenerateUserTokenForKeyAndAudiences(keyId string, user models.User, audienc
 
 	// Adding the email verification to the token if the validation is on
 	if ctx.Authorization.ValidationOptions.VerifiedEmail {
-		userClaims["email_verified"] = false
+		userClaims["email_verified"] = user.EmailVerified
 	}
 
 	// Adding the correlation nonce to the token if it exists
@@ -137,13 +134,15 @@ func GenerateRefreshToken(keyId string, user models.User) (string, error) {
 	refreshTokenClaims.Subject = user.Email
 	refreshTokenClaims.Issuer = ctx.Authorization.Options.Issuer
 	refreshTokenClaims.Issued = jwt.NewNumericTime(nowSkew)
-	refreshTokenClaims.NotBefore = jwt.NewNumericTime(nowNegativeSkew)
+	if ctx.Authorization.ValidationOptions.NotBefore {
+		refreshTokenClaims.NotBefore = jwt.NewNumericTime(nowNegativeSkew)
+	}
 	refreshTokenClaims.Expires = jwt.NewNumericTime(validUntil)
-	refreshTokenClaims.ID = uuid.NewString()
+	refreshTokenClaims.ID = cryptorand.GenerateAlphaNumericRandomString(60)
 
 	// Custom Claims
 	userClaims := make(map[string]interface{})
-	userClaims["scp"] = identity.RefreshTokenScope
+	userClaims["scope"] = identity.RefreshTokenScope
 	userClaims["name"] = user.DisplayName
 	userClaims["given_name"] = user.FirstName
 	userClaims["family_name"] = user.LastName
@@ -163,19 +162,21 @@ func GenerateRefreshToken(keyId string, user models.User) (string, error) {
 }
 
 func GenerateVerifyEmailToken(keyId string, user models.User) string {
-	var refreshTokenClaims jwt.Claims
+	var emailVerificationTokenClaims jwt.Claims
 	ctx := execution_context.Get()
 	now := time.Now().Round(time.Second)
 	nowSkew := now.Add((time.Hour * 2))
 	nowNegativeSkew := now.Add((time.Minute * 2) * -1)
 	validUntil := nowSkew.Add(time.Hour * 2)
 
-	refreshTokenClaims.Subject = user.Email
-	refreshTokenClaims.Issuer = ctx.Authorization.Options.Issuer
-	refreshTokenClaims.Issued = jwt.NewNumericTime(nowSkew)
-	refreshTokenClaims.NotBefore = jwt.NewNumericTime(nowNegativeSkew)
-	refreshTokenClaims.Expires = jwt.NewNumericTime(validUntil)
-	refreshTokenClaims.ID = uuid.NewString()
+	emailVerificationTokenClaims.Subject = user.Email
+	emailVerificationTokenClaims.Issuer = ctx.Authorization.Options.Issuer
+	emailVerificationTokenClaims.Issued = jwt.NewNumericTime(nowSkew)
+	if ctx.Authorization.ValidationOptions.NotBefore {
+		emailVerificationTokenClaims.NotBefore = jwt.NewNumericTime(nowNegativeSkew)
+	}
+	emailVerificationTokenClaims.Expires = jwt.NewNumericTime(validUntil)
+	emailVerificationTokenClaims.ID = cryptorand.GenerateAlphaNumericRandomString(60)
 
 	// Custom Claims
 	userClaims := make(map[string]interface{})
@@ -184,10 +185,12 @@ func GenerateVerifyEmailToken(keyId string, user models.User) string {
 	userClaims["given_name"] = user.FirstName
 	userClaims["family_name"] = user.LastName
 	userClaims["uid"] = strings.ToLower(user.ID)
-	userClaims["tid"] = ctx.Authorization.TenantId
-	refreshTokenClaims.KeyID = ctx.Authorization.Options.KeyId
+	if ctx.Authorization.TenantId != "" {
+		userClaims["tid"] = ctx.Authorization.TenantId
+	}
+	emailVerificationTokenClaims.KeyID = ctx.Authorization.Options.KeyId
 
-	refreshToken, err := signToken(keyId, refreshTokenClaims)
+	refreshToken, err := signToken(keyId, emailVerificationTokenClaims)
 	if err != nil {
 		logger.Error("There was an error signing the email verification token for user %v with key id %v", user.Username, keyId)
 		return ""
@@ -196,9 +199,9 @@ func GenerateVerifyEmailToken(keyId string, user models.User) string {
 	return refreshToken
 }
 
-func ValidateUserToken(token string, scope string) (bool, error) {
+func ValidateUserToken(token string, scope string, audiences ...string) (*models.UserToken, error) {
 	if token == "" {
-		return false, errors.New("token cannot be empty")
+		return nil, errors.New("token cannot be empty")
 	}
 
 	ctx := execution_context.Get()
@@ -209,52 +212,105 @@ func ValidateUserToken(token string, scope string) (bool, error) {
 	var signKey *jwt_keyvault.JwtKeyVaultItem
 	rawToken, err := jwt.ParseWithoutCheck(tokenBytes)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
-	signKey = ctx.Authorization.KeyVault.GetKey(rawToken.KeyID)
 	// Verifying signature using the key that was sign with
+	signKey = ctx.Authorization.KeyVault.GetKey(rawToken.KeyID)
 	switch kt := signKey.PrivateKey.(type) {
 	case *ecdsa.PrivateKey:
 		key := kt.PublicKey
 		verifiedToken, err = jwt.ECDSACheck(tokenBytes, &key)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 	case string:
 		verifiedToken, err = jwt.HMACCheck(tokenBytes, []byte(kt))
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 	case *rsa.PrivateKey:
 		key := kt.PublicKey
 		verifiedToken, err = jwt.RSACheck(tokenBytes, &key)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 	}
 
-	tokenScope, _ := verifiedToken.String("scp")
-	if !strings.EqualFold(scope, tokenScope) {
-		return false, errors.New("token scope is not valid")
+	// Transforming token into a user token
+	rawJsonToken, _ := verifiedToken.Raw.MarshalJSON()
+	var userToken models.UserToken
+	err = json.Unmarshal(rawJsonToken, &userToken)
+	if err != nil {
+		return nil, errors.New("token is not formated correctly")
 	}
 
-	if verifiedToken.NotBefore.Time().After(time.Now()) {
-		return false, errors.New("token is not yet valid")
+	// Validating the scope of the token
+	if !strings.EqualFold(scope, userToken.Scope) {
+		return &userToken, errors.New("token scope is not valid")
+	}
+
+	// Validating the token not before property
+	if ctx.Authorization.ValidationOptions.NotBefore {
+		if userToken.NotBefore.After(time.Now()) {
+			return &userToken, errors.New("token is not yet valid")
+		}
 	}
 
 	// Validating expiry token
-	if !verifiedToken.Valid(time.Now()) {
-		return false, errors.New("token is expired")
+	if userToken.ExpiresAt.Before(time.Now()) {
+		return &userToken, errors.New("token is expired")
 	}
 
+	// If we require the Issuer to be validated we will be validating it
 	if ctx.Authorization.ValidationOptions.Issuer {
-		if !strings.EqualFold(verifiedToken.Issuer, ctx.Authorization.Options.Issuer) {
-			return false, errors.New("Token is not valid for issuer " + verifiedToken.Issuer)
+		if !strings.EqualFold(userToken.Issuer, ctx.Authorization.Options.Issuer) {
+			return &userToken, errors.New("token is not valid for subject " + userToken.DisplayName)
 		}
 	}
 
-	return true, nil
+	// Validating if the email has been verified
+	if ctx.Authorization.ValidationOptions.VerifiedEmail {
+		if !userToken.EmailVerified {
+			return &userToken, errors.New("email is not verified for subject " + userToken.DisplayName)
+		}
+	}
+
+	// Validating if the token contains the necessary audiences
+	if ctx.Authorization.ValidationOptions.Audiences && len(audiences) > 0 {
+		if len(audiences) == 0 || len(userToken.Audiences) == 0 {
+			return &userToken, errors.New("no audiences to validate subject " + userToken.DisplayName)
+		}
+		isValid := true
+		for _, audience := range audiences {
+			wasFound := false
+			for _, userAudience := range userToken.Audiences {
+				if strings.EqualFold(userAudience, audience) {
+					wasFound = true
+				}
+			}
+			if !wasFound {
+				isValid = false
+				break
+			}
+		}
+
+		if !isValid {
+			return &userToken, errors.New("one or more required audience was not found for subject " + userToken.DisplayName)
+		}
+	}
+
+	// Validating if the token tenant id is the same as the context
+	if ctx.Authorization.ValidationOptions.Tenant {
+		if ctx.Authorization.TenantId == "" || userToken.TenantId == "" {
+			return &userToken, errors.New("no tenant was not found for subject " + userToken.DisplayName)
+		}
+		if !strings.EqualFold(ctx.Authorization.TenantId, userToken.TenantId) {
+			return &userToken, errors.New("token is not valid for tenant " + userToken.TenantId + " for subject " + userToken.DisplayName)
+		}
+	}
+
+	return &userToken, nil
 }
 
 func signToken(keyId string, claims jwt.Claims) (string, error) {
@@ -273,6 +329,7 @@ func signToken(keyId string, claims jwt.Claims) (string, error) {
 		return "", err
 	}
 	var extraHeaders []byte
+
 	// Signing the token using the key encryption type
 	switch kt := signKey.PrivateKey.(type) {
 	case *ecdsa.PrivateKey:
@@ -296,11 +353,11 @@ func signToken(keyId string, claims jwt.Claims) (string, error) {
 		})
 		switch signKey.Size {
 		case encryption.Bit256:
-			rawToken, err = claims.HMACSign("HS256", []byte(kt))
+			rawToken, err = claims.HMACSign("HS256", []byte(kt), extraHeaders)
 		case encryption.Bit384:
-			rawToken, err = claims.HMACSign("HS384", []byte(kt))
+			rawToken, err = claims.HMACSign("HS384", []byte(kt), extraHeaders)
 		case encryption.Bit512:
-			rawToken, err = claims.HMACSign("HS512", []byte(kt))
+			rawToken, err = claims.HMACSign("HS512", []byte(kt), extraHeaders)
 		}
 	case *rsa.PrivateKey:
 		// Adding extra headers for some signing cases

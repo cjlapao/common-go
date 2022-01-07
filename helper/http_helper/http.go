@@ -58,6 +58,30 @@ func GetHttpRequestQueryValue(r *http.Request, key string) (interface{}, error) 
 	return keyValue, nil
 }
 
+func GetHttpRequestPaginationQuery(r *http.Request) (skip int64, top int64, sortField string, sortOrder string) {
+	sort := GetHttpRequestStrValue(r, "$orderby")
+	sortArr := strings.Split(sort, " ")
+	if len(sortArr) == 2 {
+		sortField = sortArr[0]
+		sortOrder = sortArr[1]
+	}
+
+	top = GetHttpRequestIntValue(r, "$top")
+	skip = GetHttpRequestIntValue(r, "$skip")
+	return skip, top, sortField, sortOrder
+}
+
+func GetHttpRequestFilterQuery(r *http.Request) (field string, value string) {
+	filter := GetHttpRequestStrValue(r, "$filterby")
+	filterArr := strings.Split(filter, " ")
+	if len(filterArr) == 2 {
+		field = filterArr[0]
+		value = filterArr[1]
+	}
+
+	return field, value
+}
+
 func GetHttpRequestIntValue(r *http.Request, key string) int64 {
 	queryValue, err := GetHttpRequestQueryValue(r, key)
 	if err != nil {

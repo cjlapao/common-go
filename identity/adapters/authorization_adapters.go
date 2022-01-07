@@ -8,10 +8,9 @@ import (
 	"github.com/cjlapao/common-go/execution_context"
 	"github.com/cjlapao/common-go/helper/http_helper"
 	"github.com/cjlapao/common-go/identity/authorization_context"
+	"github.com/cjlapao/common-go/identity/jwt"
 	"github.com/cjlapao/common-go/identity/models"
 	"github.com/cjlapao/common-go/log"
-	"github.com/cjlapao/common-go/security"
-	"github.com/pascaldekloe/jwt"
 )
 
 func AuthorizationAdapter() controllers.Adapter {
@@ -28,7 +27,7 @@ func AuthorizationAdapter() controllers.Adapter {
 			}
 
 			// Validating token against the keys
-			token, err := jwt.HMACCheck([]byte(jwt_token), []byte(security.PrivateKey))
+			token, err := jwt.ValidateUserToken(jwt_token, "app_token")
 			if err != nil {
 				authorized = false
 			}
@@ -36,7 +35,7 @@ func AuthorizationAdapter() controllers.Adapter {
 			if authorized {
 				user := authorization_context.NewContextUser()
 				user.ID = token.ID
-				user.Email = token.Subject
+				user.Email = token.User
 				user.Audiences = token.Audiences
 				user.Issuer = token.Issuer
 

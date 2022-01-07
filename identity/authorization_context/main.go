@@ -33,6 +33,7 @@ func NewFromUser(user *ContextUser) *AuthorizationContext {
 			Issuer:        true,
 			VerifiedEmail: false,
 			NotBefore:     false,
+			Tenant:        false,
 		},
 	}
 

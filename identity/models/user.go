@@ -6,6 +6,7 @@ import "github.com/google/uuid"
 type User struct {
 	ID               string      `json:"id" bson:"_id"`
 	Email            string      `json:"email" bson:"email"`
+	EmailVerified    bool        `json:"emailVerified" bson:"emailVerified"`
 	Username         string      `json:"userName" bson:"userName"`
 	FirstName        string      `json:"firstName" bson:"firstName"`
 	LastName         string      `json:"lastName" bson:"lastName"`

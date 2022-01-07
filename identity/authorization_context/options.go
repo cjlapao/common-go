@@ -25,4 +25,5 @@ type AuthorizationValidationOptions struct {
 	Issuer        bool
 	VerifiedEmail bool
 	NotBefore     bool
+	Tenant        bool
 }

@@ -113,7 +113,10 @@ func (l *HttpListener) WithDefaultAuthentication() *HttpListener {
 	defaultAuthControllers := authControllers.NewDefaultAuthorizationControllers()
 
 	l.AddController(defaultAuthControllers.Login(), "/login", "POST")
+	l.AddController(defaultAuthControllers.Introspection(), "/token", "POST")
+	l.AddController(defaultAuthControllers.Introspection(), "/{tenantId}/token", "POST")
 	l.AddController(defaultAuthControllers.Introspection(), "/token/introspect", "POST")
+	l.AddController(defaultAuthControllers.Introspection(), "/{tenantId}/token/introspect", "POST")
 	l.DefaultAdapters = append([]controllers.Adapter{authAdapters.EndAuthorizationAdapter()}, l.DefaultAdapters...)
 	l.Options.EnableAuthentication = true
 	return l
@@ -128,7 +131,10 @@ func (l *HttpListener) WithAuthentication(context identity_database_adapter.User
 		defaultAuthControllers := authControllers.NewAuthorizationControllers(context)
 
 		l.AddController(defaultAuthControllers.Login(), "/login", "POST")
+		l.AddController(defaultAuthControllers.Introspection(), "/token", "POST")
+		l.AddController(defaultAuthControllers.Introspection(), "/{tenantId}/token", "POST")
 		l.AddController(defaultAuthControllers.Introspection(), "/token/introspect", "POST")
+		l.AddController(defaultAuthControllers.Introspection(), "/{tenantId}/token/introspect", "POST")
 		l.DefaultAdapters = append([]controllers.Adapter{authAdapters.EndAuthorizationAdapter()}, l.DefaultAdapters...)
 		l.Options.EnableAuthentication = true
 	} else {
