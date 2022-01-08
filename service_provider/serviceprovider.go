@@ -24,13 +24,14 @@ func New() *ServiceProvider {
 	globalProviderContainer.Logger = log.Get()
 	globalProviderContainer.Version = version.Get()
 	globalProviderContainer.Configuration = configuration.Get()
-	globalProviderContainer.Logger.EnableTimestamp()
+	globalProviderContainer.Logger.WithTimestamp()
 	if globalProviderContainer.Configuration.GetBool(constants.DEBUG_ENVIRONMENT) {
-		globalProviderContainer.Logger.EnableDebug()
+		globalProviderContainer.Logger.WithDebug()
 	}
 	if globalProviderContainer.Configuration.GetBool(constants.TRACE_ENVIRONMENT) {
-		globalProviderContainer.Logger.EnableTrace()
+		globalProviderContainer.Logger.WithTrace()
 	}
+
 	return globalProviderContainer
 }
 

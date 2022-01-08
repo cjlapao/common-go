@@ -8,12 +8,10 @@ import (
 	"github.com/cjlapao/common-go/configuration"
 	"github.com/cjlapao/common-go/identity/jwt_keyvault"
 	"github.com/cjlapao/common-go/security/encryption"
-	"github.com/google/uuid"
 )
 
 type AuthorizationContext struct {
 	User              *ContextUser
-	CorrelationId     string
 	TenantId          string
 	Options           AuthorizationOptions
 	ValidationOptions AuthorizationValidationOptions
@@ -24,8 +22,7 @@ var currentAuthorizationContext *AuthorizationContext
 
 func NewFromUser(user *ContextUser) *AuthorizationContext {
 	currentAuthorizationContext = &AuthorizationContext{
-		User:          user,
-		CorrelationId: uuid.NewString(),
+		User: user,
 		ValidationOptions: AuthorizationValidationOptions{
 			Audiences:     false,
 			ExpiryDate:    true,

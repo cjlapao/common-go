@@ -1,16 +1,17 @@
 package execution_context
 
 import (
+	"os"
 	"strings"
 
 	"github.com/cjlapao/common-go/cache"
 	"github.com/cjlapao/common-go/cache/jwt_token_cache"
 	"github.com/cjlapao/common-go/configuration"
 	"github.com/cjlapao/common-go/constants"
-	"github.com/cjlapao/common-go/helper"
+	"github.com/cjlapao/common-go/cryptorand"
+	"github.com/cjlapao/common-go/helper/reflect_helper"
 	"github.com/cjlapao/common-go/identity/authorization_context"
 	"github.com/cjlapao/common-go/service_provider"
-	"github.com/google/uuid"
 )
 
 var contextService *Context
@@ -47,13 +48,14 @@ func InitNewContext(init func() error) (*Context, error) {
 	contextService.Configuration = configuration.Get()
 	contextService.Caches = cache.Get()
 	contextService.TokenCache = jwt_token_cache.New()
-	contextService.CorrelationId = uuid.NewString()
+	contextService.CorrelationId = cryptorand.GenerateRandomString(45)
 	contextService.Services = service_provider.Get()
+	os.Setenv("CORRELATION_ID", contextService.CorrelationId)
 
 	environment := contextService.Configuration.GetString(constants.ENVIRONMENT)
 	debug := contextService.Configuration.GetBool(constants.DEBUG_ENVIRONMENT)
 
-	if !helper.IsNilOrEmpty(environment) {
+	if !reflect_helper.IsNilOrEmpty(environment) {
 		if strings.ToLower(environment) == "development" {
 			contextService.IsDevelopment = true
 			contextService.Environment = "Development"
@@ -104,6 +106,18 @@ func (c *Context) WithDefaultAuthorization() *Context {
 func (c *Context) WithAuthorization(options authorization_context.AuthorizationOptions) *Context {
 	// Authorization Context
 	contextService.Authorization = authorization_context.New().WithOptions(options)
+	return c
+}
+
+func (c *Context) Refresh() *Context {
+	c.CorrelationId = cryptorand.GenerateRandomString(45)
+	os.Setenv("CORRELATION_ID", c.CorrelationId)
+	return c
+}
+
+func (c *Context) SetCorrelationId(correlationId string) *Context {
+	c.CorrelationId = correlationId
+	os.Setenv("CORRELATION_ID", c.CorrelationId)
 	return c
 }
 

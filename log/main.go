@@ -11,6 +11,7 @@ import (
 // Log Interface
 type Log interface {
 	UseTimestamp(value bool)
+	UseCorrelationId(value bool)
 	Log(format string, level Level, words ...string)
 	LogHighlight(format string, level Level, highlightColor strcolor.ColorCode, words ...string)
 	Info(format string, words ...string)
@@ -50,6 +51,14 @@ const (
 	Info
 	Debug
 	Trace
+)
+
+// LogOptions Definition
+type LoggerOptions int64
+
+const (
+	WithTimestamp LoggerOptions = iota
+	WithCorrelationId
 )
 
 // Get Creates a new Logger instance
@@ -113,22 +122,33 @@ func (l *Logger) AddCmdLoggerWithTimestamp() {
 	}
 }
 
-func (l *Logger) EnableDebug() {
+func (l *Logger) WithDebug() *Logger {
 	l.LogLevel = Debug
+	return l
 }
 
-func (l *Logger) EnableTrace() {
+func (l *Logger) WithTrace() *Logger {
 	l.LogLevel = Trace
+	return l
 }
 
-func (l *Logger) EnableWarning() {
+func (l *Logger) WithWarning() *Logger {
 	l.LogLevel = Warning
+	return l
 }
 
-func (l *Logger) EnableTimestamp() {
+func (l *Logger) WithTimestamp() *Logger {
 	for _, logger := range l.Loggers {
 		logger.UseTimestamp(true)
 	}
+	return l
+}
+
+func (l *Logger) WithCorrelationId() *Logger {
+	for _, logger := range l.Loggers {
+		logger.UseCorrelationId(true)
+	}
+	return l
 }
 
 // Log Log information message

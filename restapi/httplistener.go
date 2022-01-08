@@ -15,10 +15,10 @@ import (
 
 	"github.com/cjlapao/common-go/controllers"
 	"github.com/cjlapao/common-go/execution_context"
-	"github.com/cjlapao/common-go/helper"
-	authAdapters "github.com/cjlapao/common-go/identity/adapters"
+	"github.com/cjlapao/common-go/helper/reflect_helper"
 	authControllers "github.com/cjlapao/common-go/identity/controllers"
-	"github.com/cjlapao/common-go/identity/identity_database_adapter"
+	"github.com/cjlapao/common-go/identity/database"
+	"github.com/cjlapao/common-go/identity/middleware"
 	logger "github.com/cjlapao/common-go/log"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -73,6 +73,9 @@ func NewHttpListener() *HttpListener {
 	listener.Controllers = make([]controllers.Controller, 0)
 	listener.DefaultAdapters = make([]controllers.Adapter, 0)
 
+	// Appending the correlationId renewal
+	listener.DefaultAdapters = append(listener.DefaultAdapters, CorrelationMiddlewareAdapter())
+
 	listener.Options = listener.getDefaultConfiguration()
 
 	globalHttpListener = &listener
@@ -93,12 +96,12 @@ func (l *HttpListener) AddHealthCheck() *HttpListener {
 }
 
 func (l *HttpListener) AddLogger() *HttpListener {
-	l.DefaultAdapters = append(l.DefaultAdapters, LoggerAdapter())
+	l.DefaultAdapters = append(l.DefaultAdapters, LoggerMiddlewareAdapter())
 	return l
 }
 
 func (l *HttpListener) AddJsonContent() *HttpListener {
-	l.DefaultAdapters = append(l.DefaultAdapters, JsonContentAdapter())
+	l.DefaultAdapters = append(l.DefaultAdapters, JsonContentMiddlewareAdapter())
 	return l
 }
 
@@ -112,17 +115,16 @@ func (l *HttpListener) WithDefaultAuthentication() *HttpListener {
 	}
 	defaultAuthControllers := authControllers.NewDefaultAuthorizationControllers()
 
-	l.AddController(defaultAuthControllers.Login(), "/login", "POST")
 	l.AddController(defaultAuthControllers.Introspection(), "/token", "POST")
 	l.AddController(defaultAuthControllers.Introspection(), "/{tenantId}/token", "POST")
 	l.AddController(defaultAuthControllers.Introspection(), "/token/introspect", "POST")
 	l.AddController(defaultAuthControllers.Introspection(), "/{tenantId}/token/introspect", "POST")
-	l.DefaultAdapters = append([]controllers.Adapter{authAdapters.EndAuthorizationAdapter()}, l.DefaultAdapters...)
+	l.DefaultAdapters = append([]controllers.Adapter{middleware.EndAuthorizationMiddlewareAdapter()}, l.DefaultAdapters...)
 	l.Options.EnableAuthentication = true
 	return l
 }
 
-func (l *HttpListener) WithAuthentication(context identity_database_adapter.UserDatabaseAdapter) *HttpListener {
+func (l *HttpListener) WithAuthentication(context database.UserDatabaseAdapter) *HttpListener {
 	ctx := execution_context.Get()
 	if ctx.Authorization != nil {
 		if l.Options.UseAuthBackend {
@@ -130,12 +132,11 @@ func (l *HttpListener) WithAuthentication(context identity_database_adapter.User
 		}
 		defaultAuthControllers := authControllers.NewAuthorizationControllers(context)
 
-		l.AddController(defaultAuthControllers.Login(), "/login", "POST")
-		l.AddController(defaultAuthControllers.Introspection(), "/token", "POST")
-		l.AddController(defaultAuthControllers.Introspection(), "/{tenantId}/token", "POST")
+		l.AddController(defaultAuthControllers.Token(), "/token", "POST")
+		l.AddController(defaultAuthControllers.Token(), "/{tenantId}/token", "POST")
 		l.AddController(defaultAuthControllers.Introspection(), "/token/introspect", "POST")
 		l.AddController(defaultAuthControllers.Introspection(), "/{tenantId}/token/introspect", "POST")
-		l.DefaultAdapters = append([]controllers.Adapter{authAdapters.EndAuthorizationAdapter()}, l.DefaultAdapters...)
+		l.DefaultAdapters = append([]controllers.Adapter{middleware.EndAuthorizationMiddlewareAdapter()}, l.DefaultAdapters...)
 		l.Options.EnableAuthentication = true
 	} else {
 		l.Logger.Error("No authorization context found, ignoring")
@@ -173,7 +174,7 @@ func (l *HttpListener) AddAuthorizedController(c controllers.Controller, path st
 	}
 	adapters := make([]controllers.Adapter, 0)
 	adapters = append(adapters, l.DefaultAdapters...)
-	adapters = append(adapters, authAdapters.AuthorizationAdapter())
+	adapters = append(adapters, middleware.AuthorizationMiddlewareAdapter())
 
 	if l.Options.ApiPrefix != "" {
 		path = l.Options.ApiPrefix + path
@@ -250,7 +251,6 @@ func (l *HttpListener) Start() {
 	<-done
 
 	l.Logger.Info("Server shut down successfully...")
-	// http.ListenAndServeTLS(":10001", "./ssl/local-cluster.internal.crt", "./ssl/local-cluster.internal.key", router)
 }
 
 func (l *HttpListener) WaitAndShutdown() {
@@ -291,15 +291,15 @@ func (l *HttpListener) getDefaultConfiguration() *HttpListenerOptions {
 		MongoDbConnectionString: l.Context.Configuration.GetBase64("MONGODB_CONNECTION_STRING"),
 	}
 
-	if helper.IsNilOrEmpty(options.HttpPort) {
+	if reflect_helper.IsNilOrEmpty(options.HttpPort) {
 		options.HttpPort = "5000"
 	}
 
-	if helper.IsNilOrEmpty(options.TLSPort) {
+	if reflect_helper.IsNilOrEmpty(options.TLSPort) {
 		options.TLSPort = "5001"
 	}
 
-	if helper.IsNilOrEmpty(options.DatabaseName) {
+	if reflect_helper.IsNilOrEmpty(options.DatabaseName) {
 		options.DatabaseName = "users"
 	}
 

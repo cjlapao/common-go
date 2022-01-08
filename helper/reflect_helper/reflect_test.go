@@ -1,8 +1,9 @@
-package helper
+package reflect_helper
 
 import (
 	"testing"
 
+	"github.com/cjlapao/common-go/helper"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -14,10 +15,10 @@ func TestIsNilOrEmpty(t *testing.T) {
 	falseVal := false
 	int64Val := int64(0)
 	floatVal := float64(0)
-	emptyStructValue := TestStructure{}
-	var nilStructValue TestStructure
+	emptyStructValue := helper.TestStructure{}
+	var nilStructValue helper.TestStructure
 	var nilInterfaceValue interface{}
-	nonEmptyStruct := TestStructure{
+	nonEmptyStruct := helper.TestStructure{
 		TestString: "bar",
 	}
 

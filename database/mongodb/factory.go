@@ -29,6 +29,7 @@ func NewFactory(connectionString string) *MongoFactory {
 	factory.Logger = log.Get()
 	factory.GetClient()
 	factory.GetContext()
+	factory.Logger.Info("init done")
 	return &factory
 }
 

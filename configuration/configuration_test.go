@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cjlapao/common-go/helper"
+	"github.com/cjlapao/common-go/helper/reflect_helper"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,9 +22,9 @@ func TestGetConfigurationProvider_ReturnCorrect(t *testing.T) {
 	initializedConfig := Get()
 
 	// Assert
-	assert.False(t, helper.IsNilOrEmpty(config))
-	assert.True(t, helper.IsNilOrEmpty(key1))
-	assert.False(t, helper.IsNilOrEmpty(initializedConfig))
+	assert.False(t, reflect_helper.IsNilOrEmpty(config))
+	assert.True(t, reflect_helper.IsNilOrEmpty(key1))
+	assert.False(t, reflect_helper.IsNilOrEmpty(initializedConfig))
 }
 
 func TestGetConfigurationProvider_ResturnsSameKeyAfterReinitialization(t *testing.T) {
@@ -40,9 +41,9 @@ func TestGetConfigurationProvider_ResturnsSameKeyAfterReinitialization(t *testin
 	key2 := initializedConfig.Get("foo")
 
 	// Assert
-	assert.False(t, helper.IsNilOrEmpty(config))
-	assert.True(t, helper.IsNilOrEmpty(key1))
-	assert.False(t, helper.IsNilOrEmpty(initializedConfig))
+	assert.False(t, reflect_helper.IsNilOrEmpty(config))
+	assert.True(t, reflect_helper.IsNilOrEmpty(key1))
+	assert.False(t, reflect_helper.IsNilOrEmpty(initializedConfig))
 	assert.Equal(t, "bar", updatedKey1)
 	assert.Equal(t, "bar", key2)
 }
@@ -89,10 +90,10 @@ func TestConfigurationProvider_IfUpsertEmptyValueErrorIsReturned(t *testing.T) {
 	assert.IsTypef(t, errors.New("someError"), key3, "Config Provider should return an error interface")
 	assert.IsTypef(t, errors.New("someError"), key4, "Config Provider should return an error interface")
 
-	assert.Truef(t, helper.IsNilOrEmpty(key1Value), "Config Provider should return empty value for key1")
-	assert.Truef(t, helper.IsNilOrEmpty(key2Value), "Config Provider should return empty value for key2")
-	assert.Truef(t, helper.IsNilOrEmpty(key3Value), "Config Provider should return empty value for key3")
-	assert.Truef(t, helper.IsNilOrEmpty(key4Value), "Config Provider should return empty value for key4")
+	assert.Truef(t, reflect_helper.IsNilOrEmpty(key1Value), "Config Provider should return empty value for key1")
+	assert.Truef(t, reflect_helper.IsNilOrEmpty(key2Value), "Config Provider should return empty value for key2")
+	assert.Truef(t, reflect_helper.IsNilOrEmpty(key3Value), "Config Provider should return empty value for key3")
+	assert.Truef(t, reflect_helper.IsNilOrEmpty(key4Value), "Config Provider should return empty value for key4")
 }
 
 func TestConfigurationProvider_IfUpsertKeyValueIsStoredInVault(t *testing.T) {
@@ -123,10 +124,10 @@ func TestConfigurationProvider_IfUpsertKeyValueIsStoredInVault(t *testing.T) {
 	assert.IsTypef(t, nil, key3, "Config Provider should return an error interface")
 	assert.IsTypef(t, nil, key4, "Config Provider should return an error interface")
 
-	assert.Falsef(t, helper.IsNilOrEmpty(key1Value), "Config Provider should return value for key")
-	assert.Falsef(t, helper.IsNilOrEmpty(key2Value), "Config Provider should return value for key")
-	assert.Falsef(t, helper.IsNilOrEmpty(key3Value), "Config Provider should return value for key")
-	assert.Falsef(t, helper.IsNilOrEmpty(key4Value), "Config Provider should return value for key")
+	assert.Falsef(t, reflect_helper.IsNilOrEmpty(key1Value), "Config Provider should return value for key")
+	assert.Falsef(t, reflect_helper.IsNilOrEmpty(key2Value), "Config Provider should return value for key")
+	assert.Falsef(t, reflect_helper.IsNilOrEmpty(key3Value), "Config Provider should return value for key")
+	assert.Falsef(t, reflect_helper.IsNilOrEmpty(key4Value), "Config Provider should return value for key")
 
 	assert.Equalf(t, "bar", key1Value, "Config Provider should return \"bar\" value for key")
 	assert.Equalf(t, 2, key2Value, "Config Provider should return \"2\" value for key")
@@ -146,7 +147,7 @@ func TestConfigurationProvider_GetKeyShouldReturnEnvValues(t *testing.T) {
 	key1Value := config.Get("foo")
 
 	//Assert
-	assert.Falsef(t, helper.IsNilOrEmpty(key1Value), "Config Provider should return value for key")
+	assert.Falsef(t, reflect_helper.IsNilOrEmpty(key1Value), "Config Provider should return value for key")
 
 	assert.Equalf(t, "bar", key1Value, "Config Provider should return \"bar\" value for key")
 	os.Setenv("foo", "")
@@ -166,7 +167,7 @@ func TestConfigurationProvider_GetKeyShouldReturnEnvValuesInsteadOfVaultValues(t
 	key1Value := config.Get("foo")
 
 	//Assert
-	assert.Falsef(t, helper.IsNilOrEmpty(key1Value), "Config Provider should return value for key")
+	assert.Falsef(t, reflect_helper.IsNilOrEmpty(key1Value), "Config Provider should return value for key")
 
 	assert.Equalf(t, "bar", key1Value, "Config Provider should return \"bar\" value for key")
 	os.Setenv("foo", "")
@@ -222,8 +223,8 @@ func TestConfigurationProvider_UpsertKeysShouldAddArrayIntoVault(t *testing.T) {
 	//Assert
 	assert.Truef(t, len(keys) == 0, "Config Provider should not return an error interface")
 
-	assert.Falsef(t, helper.IsNilOrEmpty(config.Get("foo")), "Config Provider should return value for foo")
-	assert.Falsef(t, helper.IsNilOrEmpty(config.Get("on")), "Config Provider should return value for on")
+	assert.Falsef(t, reflect_helper.IsNilOrEmpty(config.Get("foo")), "Config Provider should return value for foo")
+	assert.Falsef(t, reflect_helper.IsNilOrEmpty(config.Get("on")), "Config Provider should return value for on")
 
 	assert.Equalf(t, "bar", config.Get("foo"), "Config Provider should return \"bar\" value for key foo")
 	assert.Equalf(t, "theMoney", config.Get("on"), "Config Provider should return \"bar\" value for key on")
@@ -248,8 +249,8 @@ func TestConfigurationProvider_UpsertKeysWithErrorsShouldReturnArray(t *testing.
 	//Assert
 	assert.Truef(t, len(keys) == 2, "Config Provider should not return an error interface")
 
-	assert.Falsef(t, helper.IsNilOrEmpty(config.Get("foo")), "Config Provider should return value for foo")
-	assert.Falsef(t, helper.IsNilOrEmpty(config.Get("on")), "Config Provider should return value for on")
+	assert.Falsef(t, reflect_helper.IsNilOrEmpty(config.Get("foo")), "Config Provider should return value for foo")
+	assert.Falsef(t, reflect_helper.IsNilOrEmpty(config.Get("on")), "Config Provider should return value for on")
 
 	assert.Equalf(t, "bar", config.Get("foo"), "Config Provider should return \"bar\" value for key foo")
 	assert.Equalf(t, "theMoney", config.Get("on"), "Config Provider should return \"bar\" value for key on")
@@ -271,7 +272,7 @@ func TestNewConfigServiceResetsVault(t *testing.T) {
 	//Assert
 	assert.NotNilf(t, config, "Config service should not be nil")
 	assert.Equalf(t, "bar", keyValue, "Key value should be \"bar\"")
-	assert.True(t, helper.IsNilOrEmpty(newKeyValue), "Key \"foo\" should have been nil or empty after reset but found %v", newKeyValue)
+	assert.True(t, reflect_helper.IsNilOrEmpty(newKeyValue), "Key \"foo\" should have been nil or empty after reset but found %v", newKeyValue)
 }
 
 func TestClearEmptiesVault(t *testing.T) {

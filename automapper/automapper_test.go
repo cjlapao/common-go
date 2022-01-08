@@ -3,6 +3,9 @@
 package automapper
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -251,9 +254,36 @@ func TestWithLooseOption(t *testing.T) {
 		Foo string
 		Bar int
 	}{}
-	MapLoose(&source, &dest)
+	Map(&source, &dest, Loose)
 	assert.Equal(t, dest.Foo, "Foo")
 	assert.Equal(t, dest.Bar, 0)
+}
+
+func TestWithRequestFormOption(t *testing.T) {
+	r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("foo=bar&bar=2"))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	dest := struct {
+		Foo string
+		Bar int
+	}{}
+	Map(r, &dest, RequestForm)
+	assert.Equal(t, dest.Foo, "bar")
+	assert.Equal(t, dest.Bar, 2)
+}
+
+func TestWithRequestFormJsonOption(t *testing.T) {
+	r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("testFoo=bar&bar=2"))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	dest := struct {
+		Foo string `json:"testFoo"`
+		Bar int    `json:"bar"`
+	}{}
+
+	Map(r, &dest, RequestFormWithJsonTag)
+	assert.Equal(t, dest.Foo, "bar")
+	assert.Equal(t, dest.Bar, 2)
 }
 
 type SourceParent struct {

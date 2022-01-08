@@ -1,4 +1,4 @@
-package identity_database_adapter
+package database
 
 import (
 	"github.com/cjlapao/common-go/identity/models"

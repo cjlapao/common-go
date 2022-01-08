@@ -5,7 +5,7 @@ import (
 
 	"github.com/cjlapao/common-go/configuration"
 	"github.com/cjlapao/common-go/database/mongodb"
-	"github.com/cjlapao/common-go/helper"
+	"github.com/cjlapao/common-go/helper/reflect_helper"
 	"github.com/cjlapao/common-go/identity/models"
 	"github.com/cjlapao/common-go/log"
 	"github.com/cjlapao/common-go/security"
@@ -22,7 +22,7 @@ func GetDefaultUsers() []models.User {
 	adminUsername := config.GetString("ADMIN_USERNAME")
 	adminPassword := config.GetString("ADMIN_PASSWORD")
 
-	if helper.IsNilOrEmpty(adminUsername) {
+	if reflect_helper.IsNilOrEmpty(adminUsername) {
 		adminUser = models.User{
 			ID:        "592D8E5C-6F5D-40A0-9348-80131B083715",
 			Email:     "admin@localhost",
@@ -41,7 +41,7 @@ func GetDefaultUsers() []models.User {
 		}
 	}
 
-	if helper.IsNilOrEmpty(adminPassword) {
+	if reflect_helper.IsNilOrEmpty(adminPassword) {
 		security.SHA256Encode("p@ssw0rd")
 	} else {
 		adminUser.Password = security.SHA256Encode(adminPassword)
@@ -52,7 +52,7 @@ func GetDefaultUsers() []models.User {
 	demoUsername := config.GetString("DEMO_USERNAME")
 	demoPassword := config.GetString("DEMO_PASSWORD")
 
-	if helper.IsNilOrEmpty(demoUsername) {
+	if reflect_helper.IsNilOrEmpty(demoUsername) {
 		demoUser = models.User{
 			ID:        "C54C2A9B-CA73-4188-875A-F26026A38B58",
 			Email:     "demo@localhost",
@@ -71,7 +71,7 @@ func GetDefaultUsers() []models.User {
 		}
 	}
 
-	if helper.IsNilOrEmpty(demoPassword) {
+	if reflect_helper.IsNilOrEmpty(demoPassword) {
 		security.SHA256Encode("demo")
 	} else {
 		demoUser.Password = security.SHA256Encode(demoPassword)
@@ -93,7 +93,7 @@ func SeedUsers(factory *mongodb.MongoFactory, databaseName string) {
 	repo := mongodb.NewRepository(factory, databaseName, IdentityUsersCollection)
 	users := GetDefaultUsers()
 	for _, user := range users {
-		model := mongodb.NewUpdateOneBuilder().FilterBy("email", user.Email).Encode(user).Build()
+		model := mongodb.NewUpdateOneBuilder().FilterBy("email", user.Email).Encode(user, "refreshToken").Build()
 		repo.UpsertOne(model)
 	}
 }

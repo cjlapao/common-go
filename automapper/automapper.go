@@ -4,7 +4,22 @@ package automapper
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
 	"reflect"
+	"strconv"
+	"strings"
+
+	"github.com/cjlapao/common-go/helper/reflect_helper"
+	"github.com/cjlapao/common-go/helper/strhelper"
+)
+
+type MapOptions int64
+
+const (
+	Loose                  MapOptions = 1
+	RequestForm            MapOptions = 2
+	RequestFormWithJsonTag MapOptions = 3
 )
 
 // Map fills out the fields in dest with values from source. All fields in the
@@ -21,31 +36,78 @@ import (
 // It is a design decision to panic when a field cannot be mapped in the
 // destination to ensure that a renamed field in either the source or
 // destination does not result in subtle silent bug.
-func Map(source, dest interface{}) {
+func Map(source, dest interface{}, options ...MapOptions) {
 	var destType = reflect.TypeOf(dest)
 	if destType.Kind() != reflect.Ptr {
 		panic("Dest must be a pointer type")
 	}
 	var sourceVal = reflect.ValueOf(source)
 	var destVal = reflect.ValueOf(dest).Elem()
-	mapValues(sourceVal, destVal, false)
+	if len(options) == 0 {
+		mapValues(sourceVal, destVal, false)
+	}
+	for _, option := range options {
+		switch option {
+		case Loose:
+			mapValues(sourceVal, destVal, true)
+		case RequestForm:
+			mapRequestForm(source, dest, "")
+		case RequestFormWithJsonTag:
+			mapRequestForm(source, dest, "json")
+		}
+	}
 }
 
-// MapLoose works just like Map, except it doesn't fail when the destination
-// type contains fields not supplied by the source.
-//
-// This function is meant to be a temporary solution - the general idea is
-// that the Map function should take a number of options that can modify its
-// behavior - but I'd rather not add that functionality before I have a better
-// idea what is a good options format.
-func MapLoose(source, dest interface{}) {
-	var destType = reflect.TypeOf(dest)
-	if destType.Kind() != reflect.Ptr {
-		panic("Dest must be a pointer type")
+func mapRequestForm(source interface{}, dest interface{}, tag string) {
+	switch r := source.(type) {
+	case *http.Request:
+		r.ParseForm()
+		form := r.Form
+		if tag != "" {
+			mapFormValues(form, dest, true, tag)
+		} else {
+			mapFormValues(form, dest, false, tag)
+		}
+	default:
+		panic("Source must be a pointer http request")
 	}
-	var sourceVal = reflect.ValueOf(source)
+}
+
+func mapFormValues(sourceVal url.Values, dest interface{}, useTag bool, tagName string) {
 	var destVal = reflect.ValueOf(dest).Elem()
-	mapValues(sourceVal, destVal, true)
+	destType := destVal.Type()
+	for i := 0; i < destType.NumField(); i++ {
+		fieldName := destType.Field(i).Name
+		fieldTag := reflect_helper.GetFieldTag(destType.Field(i), "json")
+		var sourceFieldVal string
+		if useTag {
+			if tagName == "" {
+				tagName = "json"
+			}
+			sourceFieldVal = sourceVal.Get(fieldTag)
+		} else {
+			sourceFieldVal = sourceVal.Get(fieldName)
+			// trying the value in lowercase
+			if sourceFieldVal == "" {
+				sourceFieldVal = sourceVal.Get(strings.ToLower(fieldName))
+			}
+		}
+		switch destType.Field(i).Type.Kind() {
+		case reflect.Bool:
+			boolValue := strhelper.ToBoolean(sourceFieldVal)
+			destVal.Field(i).SetBool(boolValue)
+		case reflect.String:
+			destVal.Field(i).SetString(sourceFieldVal)
+		case reflect.Float32, reflect.Float64:
+			if s, err := strconv.ParseFloat(sourceFieldVal, 64); err == nil {
+				destVal.Field(i).SetFloat(s)
+			}
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			if s, err := strconv.ParseInt(sourceFieldVal, 10, 64); err == nil {
+				destVal.Field(i).SetInt(s)
+			}
+		}
+	}
 }
 
 func mapValues(sourceVal, destVal reflect.Value, loose bool) {

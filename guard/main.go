@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/cjlapao/common-go/helper"
+	"github.com/cjlapao/common-go/helper/reflect_helper"
 )
 
 func FatalEmptyOrNil(value interface{}, name ...string) {
-	if helper.IsNilOrEmpty(value) {
+	if reflect_helper.IsNilOrEmpty(value) {
 		var message string
 		if len(name) == 1 {
 			message = fmt.Sprintf("Value %v of type %v cannot be nil", name[0], reflect.TypeOf(value))
@@ -22,7 +22,7 @@ func FatalEmptyOrNil(value interface{}, name ...string) {
 }
 
 func EmptyOrNil(value interface{}, name ...string) error {
-	if helper.IsNilOrEmpty(value) {
+	if reflect_helper.IsNilOrEmpty(value) {
 		var message string
 		if len(name) == 1 {
 			message = fmt.Sprintf("Value %v of type %v cannot be nil", name[0], reflect.TypeOf(value))

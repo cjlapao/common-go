@@ -12,6 +12,7 @@ import (
 )
 
 var useTimestamp bool
+var userCorrelationId bool
 
 // CmdLogger Command Line Logger implementation
 type CmdLogger struct{}
@@ -31,6 +32,10 @@ const (
 
 func (l *CmdLogger) UseTimestamp(value bool) {
 	useTimestamp = true
+}
+
+func (l *CmdLogger) UseCorrelationId(value bool) {
+	userCorrelationId = true
 }
 
 // Log Log information message
@@ -156,6 +161,13 @@ func printMessage(format string, level string, isTask bool, isComplete bool, use
 	if len(agentID) != 0 {
 		isPipeline = true
 	}
+	if userCorrelationId {
+		correlationId := os.Getenv("CORRELATION_ID")
+		if correlationId != "" {
+			format = "[" + correlationId + "] " + format
+		}
+	}
+
 	if useTimestamp {
 		format = fmt.Sprint(time.Now().Format(time.RFC3339)) + " " + format
 	}

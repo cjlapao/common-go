@@ -1,4 +1,4 @@
-package identity_database_adapter
+package database
 
 import (
 	"strings"
@@ -7,18 +7,18 @@ import (
 	"github.com/cjlapao/common-go/identity/models"
 )
 
-type MemoryUserAdapter struct {
+type MemoryUserContextAdapter struct {
 	Users []models.User
 }
 
-func NewMemoryUserAdapter() *MemoryUserAdapter {
-	context := MemoryUserAdapter{}
+func NewMemoryUserAdapter() *MemoryUserContextAdapter {
+	context := MemoryUserContextAdapter{}
 	context.Users = identity.GetDefaultUsers()
 
 	return &context
 }
 
-func (c *MemoryUserAdapter) GetUserById(id string) *models.User {
+func (c *MemoryUserContextAdapter) GetUserById(id string) *models.User {
 	users := identity.GetDefaultUsers()
 	var user models.User
 	found := false
@@ -36,7 +36,7 @@ func (c *MemoryUserAdapter) GetUserById(id string) *models.User {
 	return nil
 }
 
-func (c *MemoryUserAdapter) GetUserByEmail(email string) *models.User {
+func (c *MemoryUserContextAdapter) GetUserByEmail(email string) *models.User {
 	users := identity.GetDefaultUsers()
 	var user models.User
 	found := false
@@ -54,11 +54,11 @@ func (c *MemoryUserAdapter) GetUserByEmail(email string) *models.User {
 	return nil
 }
 
-func (c *MemoryUserAdapter) UpsertUser(user models.User) {
+func (c *MemoryUserContextAdapter) UpsertUser(user models.User) {
 	c.Users = append(c.Users, user)
 }
 
-func (c *MemoryUserAdapter) GetUserRefreshToken(id string) *string {
+func (c *MemoryUserContextAdapter) GetUserRefreshToken(id string) *string {
 	user := c.GetUserById(id)
 	token := ""
 	if user != nil {
@@ -68,14 +68,14 @@ func (c *MemoryUserAdapter) GetUserRefreshToken(id string) *string {
 	return &token
 }
 
-func (c *MemoryUserAdapter) UpdateUserRefreshToken(id string, token string) {
+func (c *MemoryUserContextAdapter) UpdateUserRefreshToken(id string, token string) {
 	user := c.GetUserById(id)
 	if user != nil {
 		user.RefreshToken = token
 	}
 }
 
-func (c *MemoryUserAdapter) GetUserEmailVerifyToken(id string) *string {
+func (c *MemoryUserContextAdapter) GetUserEmailVerifyToken(id string) *string {
 	user := c.GetUserById(id)
 	token := ""
 	if user != nil {
@@ -85,7 +85,7 @@ func (c *MemoryUserAdapter) GetUserEmailVerifyToken(id string) *string {
 	return &token
 }
 
-func (c *MemoryUserAdapter) UpdateUserEmailVerifyToken(id string, token string) {
+func (c *MemoryUserContextAdapter) UpdateUserEmailVerifyToken(id string, token string) {
 	user := c.GetUserById(id)
 	if user != nil {
 		user.EmailVerifyToken = token

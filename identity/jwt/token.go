@@ -6,6 +6,7 @@ import (
 	"crypto/rsa"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -17,6 +18,28 @@ import (
 	"github.com/cjlapao/common-go/security/encryption"
 	"github.com/pascaldekloe/jwt"
 )
+
+func GetTokenClaim(token string, claim string) string {
+	if token == "" || claim == "" {
+		return ""
+	}
+
+	jwtToken, err := jwt.ParseWithoutCheck([]byte(token))
+
+	if err != nil {
+		return ""
+	}
+
+	// Transforming token into a user token
+	rawJsonToken, _ := jwtToken.Raw.MarshalJSON()
+	var tokenMap map[string]interface{}
+	err = json.Unmarshal(rawJsonToken, &tokenMap)
+	if err != nil {
+		return ""
+	}
+
+	return fmt.Sprintf("%v", tokenMap[claim])
+}
 
 // GenerateDefaultUserToken generates a jwt user token with the default audiences in the context
 // It returns a user token object and an error if it exists
@@ -59,7 +82,7 @@ func GenerateUserTokenForKeyAndAudiences(keyId string, user models.User, audienc
 
 	// Adding Custom Claims to the token
 	userClaims := make(map[string]interface{})
-	userClaims["scope"] = identity.ApplicationTokenScope
+	userClaims["scope"] = ctx.Authorization.Options.Scope
 	userClaims["uid"] = strings.ToLower(user.ID)
 	userClaims["name"] = user.DisplayName
 	userClaims["given_name"] = user.FirstName
@@ -71,7 +94,7 @@ func GenerateUserTokenForKeyAndAudiences(keyId string, user models.User, audienc
 	}
 
 	// Adding the correlation nonce to the token if it exists
-	if ctx.Authorization.CorrelationId != "" {
+	if ctx.CorrelationId != "" {
 		userClaims["nonce"] = ctx.CorrelationId
 	}
 
@@ -141,16 +164,17 @@ func GenerateRefreshToken(keyId string, user models.User) (string, error) {
 	refreshTokenClaims.ID = cryptorand.GenerateAlphaNumericRandomString(60)
 
 	// Custom Claims
-	userClaims := make(map[string]interface{})
-	userClaims["scope"] = identity.RefreshTokenScope
-	userClaims["name"] = user.DisplayName
-	userClaims["given_name"] = user.FirstName
-	userClaims["family_name"] = user.LastName
-	userClaims["uid"] = strings.ToLower(user.ID)
+	customClaims := make(map[string]interface{})
+	customClaims["scope"] = identity.RefreshTokenScope
+	customClaims["name"] = user.DisplayName
+	customClaims["given_name"] = user.FirstName
+	customClaims["family_name"] = user.LastName
+	customClaims["uid"] = strings.ToLower(user.ID)
 	if ctx.Authorization.TenantId != "" {
-		userClaims["tid"] = ctx.Authorization.TenantId
+		customClaims["tid"] = ctx.Authorization.TenantId
 	}
 	refreshTokenClaims.KeyID = ctx.Authorization.Options.KeyId
+	refreshTokenClaims.Set = customClaims
 
 	refreshToken, err := signToken(keyId, refreshTokenClaims)
 	if err != nil {
@@ -179,17 +203,17 @@ func GenerateVerifyEmailToken(keyId string, user models.User) string {
 	emailVerificationTokenClaims.ID = cryptorand.GenerateAlphaNumericRandomString(60)
 
 	// Custom Claims
-	userClaims := make(map[string]interface{})
-	userClaims["scope"] = identity.EmailVerificationScope
-	userClaims["name"] = user.DisplayName
-	userClaims["given_name"] = user.FirstName
-	userClaims["family_name"] = user.LastName
-	userClaims["uid"] = strings.ToLower(user.ID)
+	customClaims := make(map[string]interface{})
+	customClaims["scope"] = identity.EmailVerificationScope
+	customClaims["name"] = user.DisplayName
+	customClaims["given_name"] = user.FirstName
+	customClaims["family_name"] = user.LastName
+	customClaims["uid"] = strings.ToLower(user.ID)
 	if ctx.Authorization.TenantId != "" {
-		userClaims["tid"] = ctx.Authorization.TenantId
+		customClaims["tid"] = ctx.Authorization.TenantId
 	}
 	emailVerificationTokenClaims.KeyID = ctx.Authorization.Options.KeyId
-
+	emailVerificationTokenClaims.Set = customClaims
 	refreshToken, err := signToken(keyId, emailVerificationTokenClaims)
 	if err != nil {
 		logger.Error("There was an error signing the email verification token for user %v with key id %v", user.Username, keyId)
@@ -297,6 +321,87 @@ func ValidateUserToken(token string, scope string, audiences ...string) (*models
 
 		if !isValid {
 			return &userToken, errors.New("one or more required audience was not found for subject " + userToken.DisplayName)
+		}
+	}
+
+	// Validating if the token tenant id is the same as the context
+	if ctx.Authorization.ValidationOptions.Tenant {
+		if ctx.Authorization.TenantId == "" || userToken.TenantId == "" {
+			return &userToken, errors.New("no tenant was not found for subject " + userToken.DisplayName)
+		}
+		if !strings.EqualFold(ctx.Authorization.TenantId, userToken.TenantId) {
+			return &userToken, errors.New("token is not valid for tenant " + userToken.TenantId + " for subject " + userToken.DisplayName)
+		}
+	}
+
+	return &userToken, nil
+}
+
+func ValidateRefreshToken(token string, user string) (*models.UserToken, error) {
+	if token == "" {
+		return nil, errors.New("token cannot be empty")
+	}
+
+	ctx := execution_context.Get()
+	var tokenBytes []byte
+	var verifiedToken *jwt.Claims
+	tokenBytes = []byte(token)
+	var err error
+	var signKey *jwt_keyvault.JwtKeyVaultItem
+	rawToken, err := jwt.ParseWithoutCheck(tokenBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	// Verifying signature using the key that was sign with
+	signKey = ctx.Authorization.KeyVault.GetKey(rawToken.KeyID)
+	switch kt := signKey.PrivateKey.(type) {
+	case *ecdsa.PrivateKey:
+		key := kt.PublicKey
+		verifiedToken, err = jwt.ECDSACheck(tokenBytes, &key)
+		if err != nil {
+			return nil, err
+		}
+	case string:
+		verifiedToken, err = jwt.HMACCheck(tokenBytes, []byte(kt))
+		if err != nil {
+			return nil, err
+		}
+	case *rsa.PrivateKey:
+		key := kt.PublicKey
+		verifiedToken, err = jwt.RSACheck(tokenBytes, &key)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Transforming token into a user token
+	rawJsonToken, _ := verifiedToken.Raw.MarshalJSON()
+	var userToken models.UserToken
+	err = json.Unmarshal(rawJsonToken, &userToken)
+	if err != nil {
+		return nil, errors.New("token is not formated correctly")
+	}
+
+	// Validating the scope of the token
+	if !strings.EqualFold(user, userToken.User) {
+		return &userToken, errors.New("token user is not valid")
+	}
+
+	// Validating the scope of the token
+	if !strings.EqualFold(identity.RefreshTokenScope, userToken.Scope) {
+		return &userToken, errors.New("token scope is not valid")
+	}
+
+	// Validating expiry token
+	if userToken.ExpiresAt.Before(time.Now()) {
+		return &userToken, errors.New("token is expired")
+	}
+
+	// If we require the Issuer to be validated we will be validating it
+	if ctx.Authorization.ValidationOptions.Issuer {
+		if !strings.EqualFold(userToken.Issuer, ctx.Authorization.Options.Issuer) {
+			return &userToken, errors.New("token is not valid for subject " + userToken.DisplayName)
 		}
 	}
 
