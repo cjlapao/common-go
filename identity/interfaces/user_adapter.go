@@ -1,4 +1,4 @@
-package database
+package interfaces
 
 import (
 	"github.com/cjlapao/common-go/identity/models"

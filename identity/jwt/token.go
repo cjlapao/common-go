@@ -12,7 +12,7 @@ import (
 
 	"github.com/cjlapao/common-go/cryptorand"
 	"github.com/cjlapao/common-go/execution_context"
-	"github.com/cjlapao/common-go/identity"
+	identity_constants "github.com/cjlapao/common-go/identity/constants"
 	"github.com/cjlapao/common-go/identity/jwt_keyvault"
 	"github.com/cjlapao/common-go/identity/models"
 	"github.com/cjlapao/common-go/security/encryption"
@@ -165,7 +165,7 @@ func GenerateRefreshToken(keyId string, user models.User) (string, error) {
 
 	// Custom Claims
 	customClaims := make(map[string]interface{})
-	customClaims["scope"] = identity.RefreshTokenScope
+	customClaims["scope"] = identity_constants.RefreshTokenScope
 	customClaims["name"] = user.DisplayName
 	customClaims["given_name"] = user.FirstName
 	customClaims["family_name"] = user.LastName
@@ -204,7 +204,7 @@ func GenerateVerifyEmailToken(keyId string, user models.User) string {
 
 	// Custom Claims
 	customClaims := make(map[string]interface{})
-	customClaims["scope"] = identity.EmailVerificationScope
+	customClaims["scope"] = identity_constants.EmailVerificationScope
 	customClaims["name"] = user.DisplayName
 	customClaims["given_name"] = user.FirstName
 	customClaims["family_name"] = user.LastName
@@ -389,7 +389,7 @@ func ValidateRefreshToken(token string, user string) (*models.UserToken, error) 
 	}
 
 	// Validating the scope of the token
-	if !strings.EqualFold(identity.RefreshTokenScope, userToken.Scope) {
+	if !strings.EqualFold(identity_constants.RefreshTokenScope, userToken.Scope) {
 		return &userToken, errors.New("token scope is not valid")
 	}
 

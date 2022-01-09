@@ -19,7 +19,7 @@ func (passwordGrantFlow PasswordGrantFlow) Authenticate(controller *Authorizatio
 	user := controller.UserAdapter.GetUserByEmail(request.Username)
 
 	if user.ID == "" {
-		if user.DisplayName != "" {
+		if user.Email == "" {
 			errorResponse = models.OAuthErrorResponse{
 				Error:            models.OAuthInvalidClientError,
 				ErrorDescription: fmt.Sprintf("User %v was not found", user.DisplayName),

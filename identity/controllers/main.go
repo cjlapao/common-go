@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"github.com/cjlapao/common-go/identity/database"
+	"github.com/cjlapao/common-go/identity/interfaces"
 	"github.com/cjlapao/common-go/identity/models"
 	"github.com/cjlapao/common-go/log"
 )
@@ -14,7 +15,7 @@ type AuthorizationFlow interface {
 }
 
 type AuthorizationControllers struct {
-	UserAdapter database.UserDatabaseAdapter
+	UserAdapter interfaces.UserDatabaseAdapter
 }
 
 func NewDefaultAuthorizationControllers() *AuthorizationControllers {
@@ -25,7 +26,7 @@ func NewDefaultAuthorizationControllers() *AuthorizationControllers {
 	return &controllers
 }
 
-func NewAuthorizationControllers(context database.UserDatabaseAdapter) *AuthorizationControllers {
+func NewAuthorizationControllers(context interfaces.UserDatabaseAdapter) *AuthorizationControllers {
 	controllers := AuthorizationControllers{
 		UserAdapter: context,
 	}

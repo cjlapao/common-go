@@ -1,8 +1,17 @@
 package models
 
+import "github.com/cjlapao/common-go/cryptorand"
+
 type UserRole struct {
 	ID   string `json:"id" bson:"_id"`
 	Name string `json:"roleName" bson:"roleName"`
+}
+
+func NewUserRole(name string) UserRole {
+	return UserRole{
+		ID:   cryptorand.GenerateNumericRandomString(45),
+		Name: name,
+	}
 }
 
 func (ur UserRole) IsValid() bool {

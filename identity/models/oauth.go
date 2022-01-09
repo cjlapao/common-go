@@ -3,6 +3,8 @@ package models
 import (
 	"bytes"
 	"encoding/json"
+
+	"github.com/cjlapao/common-go/security/encryption"
 )
 
 // OAuthGrantType Enum
@@ -139,4 +141,59 @@ type OAuthErrorResponse struct {
 	Error            OAuthErrorType `json:"error"`
 	ErrorDescription string         `json:"error_description,omitempty"`
 	ErrorUri         string         `json:"error_uri,omitempty"`
+}
+
+type OAuthConfigurationResponse struct {
+	Issuer                             string   `json:"issuer"`
+	JwksURI                            string   `json:"jwks_uri"`
+	AuthorizationEndpoint              string   `json:"authorization_endpoint"`
+	TokenEndpoint                      string   `json:"token_endpoint"`
+	UserinfoEndpoint                   string   `json:"userinfo_endpoint"`
+	EndSessionEndpoint                 string   `json:"end_session_endpoint"`
+	CheckSessionIframe                 string   `json:"check_session_iframe"`
+	RevocationEndpoint                 string   `json:"revocation_endpoint"`
+	IntrospectionEndpoint              string   `json:"introspection_endpoint"`
+	DeviceAuthorizationEndpoint        string   `json:"device_authorization_endpoint"`
+	FrontchannelLogoutSupported        bool     `json:"frontchannel_logout_supported"`
+	FrontchannelLogoutSessionSupported bool     `json:"frontchannel_logout_session_supported"`
+	BackchannelLogoutSupported         bool     `json:"backchannel_logout_supported"`
+	BackchannelLogoutSessionSupported  bool     `json:"backchannel_logout_session_supported"`
+	ScopesSupported                    []string `json:"scopes_supported"`
+	ClaimsSupported                    []string `json:"claims_supported"`
+	GrantTypesSupported                []string `json:"grant_types_supported"`
+	ResponseTypesSupported             []string `json:"response_types_supported"`
+	ResponseModesSupported             []string `json:"response_modes_supported"`
+	TokenEndpointAuthMethodsSupported  []string `json:"token_endpoint_auth_methods_supported"`
+	SubjectTypesSupported              []string `json:"subject_types_supported"`
+	IDTokenSigningAlgValuesSupported   []string `json:"id_token_signing_alg_values_supported"`
+	CodeChallengeMethodsSupported      []string `json:"code_challenge_methods_supported"`
+	RequestParameterSupported          bool     `json:"request_parameter_supported"`
+}
+
+type OAuthJwksResponse struct {
+	Keys []OAuthJwksKey `json:"keys"`
+}
+
+type OAuthJwksKey struct {
+	ID              string                       `json:"kid"`
+	Algorithm       encryption.EncryptionKey     `json:"alg"`
+	AlgorithmFamily encryption.EncryptionKeyType `json:"kty"`
+	Use             string                       `json:"use"`
+	X5C             []string                     `json:"x5c"`
+	Exponent        string                       `json:"e,omitempty"`
+	Modulus         string                       `json:"n,omitempty"`
+	Curve           string                       `json:"curve,omitempty"`
+	X               string                       `json:"x,omitempty"`
+	Y               string                       `json:"y,omitempty"`
+	Thumbprint      string                       `json:"x5t"`
+}
+
+type OAuthRegisterRequest struct {
+	Username  string   `json:"username"`
+	Password  string   `json:"password"`
+	Email     string   `json:"email"`
+	FirstName string   `json:"firstName"`
+	LastName  string   `json:"lastName"`
+	Roles     []string `json:"roles"`
+	Claims    []string `json:"claims"`
 }

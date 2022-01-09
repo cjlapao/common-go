@@ -68,7 +68,7 @@ func (kv *JwtKeyVaultService) WithRsaKey(id string, privateKey *rsa.PrivateKey) 
 		}
 		key.Type = key.Type.FromString(fmt.Sprintf("RS%v", privateKey.Size()))
 		key.Size = key.Size.FromString(fmt.Sprintf("%v", privateKey.Size()))
-		key.Thumbprint = encryption.GetBase64KeyFingerprint(privateKey)
+		key.Thumbprint = encryption.GetBase64KeyFingerprint(privateKey.PublicKey)
 
 		x509PrivateEncodedBlock := x509.MarshalPKCS1PrivateKey(privateKey)
 		x509PublicEncodedBlock := x509.MarshalPKCS1PublicKey(&privateKey.PublicKey)
@@ -77,6 +77,7 @@ func (kv *JwtKeyVaultService) WithRsaKey(id string, privateKey *rsa.PrivateKey) 
 
 		key.JWK = jwk.New()
 		key.JWK.Add(id, privateKey)
+		key.Thumbprint = key.JWK.Keys[0].Thumbprint
 
 		if len(kv.Keys) == 0 {
 			key.IsDefault = true
@@ -101,7 +102,7 @@ func (kv *JwtKeyVaultService) WithEcdsaKey(id string, privateKey *ecdsa.PrivateK
 		}
 		key.Type = key.Type.FromString("ES" + fmt.Sprintf("%v", privateKey.Params().BitSize))
 		key.Size = key.Size.FromString(fmt.Sprintf("%v", privateKey.Params().BitSize))
-		key.Thumbprint = encryption.GetBase64KeyFingerprint(privateKey)
+		key.Thumbprint = encryption.GetBase64KeyFingerprint(privateKey.PublicKey)
 
 		x509PrivateEncodedBlock, _ := x509.MarshalECPrivateKey(privateKey)
 		genericPublicKey, _ := x509.MarshalPKIXPublicKey(privateKey.PublicKey)
@@ -111,6 +112,7 @@ func (kv *JwtKeyVaultService) WithEcdsaKey(id string, privateKey *ecdsa.PrivateK
 		key.JWK = jwk.New()
 		key.JWK.Add(id, privateKey)
 
+		key.Thumbprint = key.JWK.Keys[0].Thumbprint
 		if len(kv.Keys) == 0 {
 			key.IsDefault = true
 		}

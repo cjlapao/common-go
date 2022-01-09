@@ -1,6 +1,9 @@
 package service_provider
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/cjlapao/common-go/configuration"
 	"github.com/cjlapao/common-go/constants"
 	"github.com/cjlapao/common-go/log"
@@ -41,4 +44,23 @@ func Get() *ServiceProvider {
 	}
 
 	return New()
+}
+
+func (sp *ServiceProvider) GetBaseUrl(r *http.Request) string {
+	protocol := "http"
+	if r.TLS != nil {
+		protocol = "https"
+	}
+
+	baseUrl := protocol + "://" + r.Host
+	apiPrefix := sp.Configuration.GetString("API_PREFIX")
+	if apiPrefix != "" {
+		if strings.HasPrefix(apiPrefix, "/") {
+			baseUrl += apiPrefix
+		} else {
+			baseUrl += "/" + apiPrefix
+		}
+	}
+
+	return baseUrl
 }

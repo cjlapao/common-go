@@ -1,18 +1,18 @@
 package database
 
 import (
-	"fmt"
-
 	"github.com/cjlapao/common-go/database/mongodb"
-	"github.com/cjlapao/common-go/identity"
+	identity_constants "github.com/cjlapao/common-go/identity/constants"
 	"github.com/cjlapao/common-go/identity/models"
 )
+
+var currentDatabase string
 
 type MongoDBContextAdapter struct{}
 
 func (u MongoDBContextAdapter) GetUserById(id string) *models.User {
 	var result models.User
-	repo := GetRepository()
+	repo := getMongoDBTenantRepository()
 	dbUsers := repo.FindOne("_id", id)
 	dbUsers.Decode(&result)
 	return &result
@@ -20,14 +20,22 @@ func (u MongoDBContextAdapter) GetUserById(id string) *models.User {
 
 func (u MongoDBContextAdapter) GetUserByEmail(email string) *models.User {
 	var result models.User
-	repo := GetRepository()
+	repo := getMongoDBTenantRepository()
 	dbUsers := repo.FindOne("email", email)
 	dbUsers.Decode(&result)
 	return &result
 }
 
 func (u MongoDBContextAdapter) UpsertUser(user models.User) {
-
+	if user.IsValid() {
+		logger.Info("Upserting user %v into database %v", currentDatabase)
+		repo := getMongoDBTenantRepository()
+		builder := mongodb.NewUpdateOneBuilder().FilterBy("_id", user.ID).Encode(user).Build()
+		result := repo.UpsertOne(builder)
+		if result.MatchedCount <= 0 {
+			logger.Error("There was an error upserting user %v", user.Email)
+		}
+	}
 }
 
 func (u MongoDBContextAdapter) GetUserRefreshToken(id string) *string {
@@ -43,10 +51,12 @@ func (u MongoDBContextAdapter) UpdateUserRefreshToken(id string, token string) {
 	user := u.GetUserById(id)
 	if user != nil {
 		user.RefreshToken = token
-		repo := GetRepository()
+		repo := getMongoDBTenantRepository()
 		builder := mongodb.NewUpdateOneBuilder().FilterBy("_id", id).Encode(user).Build()
 		result := repo.UpsertOne(builder)
-		fmt.Printf("%v %v %v %v\n", result.MatchedCount, result.ModifiedCount, result.UpsertedCount, result.UpsertedID)
+		if result.MatchedCount <= 0 {
+			logger.Error("No user found with id %v", id)
+		}
 	}
 }
 
@@ -63,15 +73,18 @@ func (u MongoDBContextAdapter) UpdateUserEmailVerifyToken(id string, token strin
 	user := u.GetUserById(id)
 	if user != nil {
 		user.EmailVerifyToken = token
-		repo := GetRepository()
+		repo := getMongoDBTenantRepository()
 		builder := mongodb.NewUpdateOneBuilder().FilterBy("_id", id).Encode(user).Build()
-		repo.UpsertOne(builder)
+		result := repo.UpsertOne(builder)
+		if result.MatchedCount <= 0 {
+			logger.Error("No user found with id %v", id)
+		}
 	}
 }
 
-func GetRepository() mongodb.Repository {
-	mongosvc := mongodb.Get()
-	factory, database := mongosvc.GetTenantDatabase()
-	userRepo := mongodb.NewRepository(factory, database, identity.IdentityUsersCollection)
+func getMongoDBTenantRepository() mongodb.Repository {
+	mongodbSvc := mongodb.Get()
+	factory, currentDatabase := mongodbSvc.GetTenantDatabase()
+	userRepo := mongodb.NewRepository(factory, currentDatabase, identity_constants.IdentityUsersCollection)
 	return userRepo
 }

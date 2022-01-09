@@ -6,6 +6,7 @@ import (
 	"github.com/cjlapao/common-go/configuration"
 	"github.com/cjlapao/common-go/database/mongodb"
 	"github.com/cjlapao/common-go/helper/reflect_helper"
+	identity_constants "github.com/cjlapao/common-go/identity/constants"
 	"github.com/cjlapao/common-go/identity/models"
 	"github.com/cjlapao/common-go/log"
 	"github.com/cjlapao/common-go/security"
@@ -90,7 +91,7 @@ func Seed(factory *mongodb.MongoFactory, databaseName string) {
 }
 
 func SeedUsers(factory *mongodb.MongoFactory, databaseName string) {
-	repo := mongodb.NewRepository(factory, databaseName, IdentityUsersCollection)
+	repo := mongodb.NewRepository(factory, databaseName, identity_constants.IdentityUsersCollection)
 	users := GetDefaultUsers()
 	for _, user := range users {
 		model := mongodb.NewUpdateOneBuilder().FilterBy("email", user.Email).Encode(user, "refreshToken").Build()

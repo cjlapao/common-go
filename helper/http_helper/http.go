@@ -1,14 +1,18 @@
 package http_helper
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 
+	"github.com/cjlapao/common-go/automapper"
 	"github.com/cjlapao/common-go/helper"
 	"github.com/cjlapao/common-go/language"
 )
@@ -128,4 +132,43 @@ func GetAuthorizationToken(request http.Header) (string, bool) {
 	}
 
 	return authHeader[1], true
+}
+
+func MapRequestBody(request *http.Request, dest interface{}) error {
+	var destType = reflect.TypeOf(dest)
+	if destType.Kind() != reflect.Ptr {
+		return errors.New("dest must be a pointer type")
+	}
+
+	request.ParseForm()
+	if len(request.Form) > 0 {
+		err := automapper.Map(request, dest, automapper.RequestFormWithJsonTag)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	request.ParseMultipartForm(0)
+	if len(request.Form) > 0 {
+		err := automapper.Map(request, dest, automapper.RequestFormWithJsonTag)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	bodyArr, err := ioutil.ReadAll(request.Body)
+	if err != nil {
+		return err
+	}
+	if len(bodyArr) == 0 {
+		return errors.New("body is empty")
+	}
+
+	err = json.Unmarshal(bodyArr, &dest)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

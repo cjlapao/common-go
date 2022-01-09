@@ -71,7 +71,13 @@ func (r *DefaultRepository) Find(fieldName string, value string) []*interface{} 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	defer cancel()
-	filter := bson.D{{fieldName, value}}
+	filter := bson.D{
+		{
+			Key:   fieldName,
+			Value: value,
+		},
+	}
+
 	cur, err := r.Collection.Find(ctx, filter)
 	if err != nil {
 		logger.LogError(err)
@@ -95,7 +101,12 @@ func (r *DefaultRepository) FindOne(fieldName string, value string) *mongo.Singl
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	defer cancel()
-	filter := bson.D{{fieldName, value}}
+	filter := bson.D{
+		{
+			Key:   fieldName,
+			Value: value,
+		},
+	}
 
 	cur := r.Collection.FindOne(ctx, filter)
 

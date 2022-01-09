@@ -9,6 +9,7 @@ import (
 	"github.com/cjlapao/common-go/controllers"
 	"github.com/cjlapao/common-go/execution_context"
 	"github.com/cjlapao/common-go/identity/models"
+	"github.com/cjlapao/common-go/service_provider"
 	"github.com/gorilla/mux"
 )
 
@@ -28,7 +29,10 @@ func (c *AuthorizationControllers) Token() controllers.Controller {
 			tenantId = "global"
 		}
 
+		baseUrl := service_provider.Get().GetBaseUrl(r)
 		ctx.Authorization.TenantId = tenantId
+
+		ctx.Authorization.Options.Issuer = baseUrl + "/auth/" + tenantId
 
 		if c.UserAdapter == nil {
 			w.WriteHeader(http.StatusUnauthorized)

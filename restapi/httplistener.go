@@ -17,7 +17,7 @@ import (
 	"github.com/cjlapao/common-go/execution_context"
 	"github.com/cjlapao/common-go/helper/reflect_helper"
 	authControllers "github.com/cjlapao/common-go/identity/controllers"
-	"github.com/cjlapao/common-go/identity/database"
+	"github.com/cjlapao/common-go/identity/interfaces"
 	"github.com/cjlapao/common-go/identity/middleware"
 	logger "github.com/cjlapao/common-go/log"
 	"github.com/gorilla/handlers"
@@ -115,27 +115,42 @@ func (l *HttpListener) WithDefaultAuthentication() *HttpListener {
 	}
 	defaultAuthControllers := authControllers.NewDefaultAuthorizationControllers()
 
-	l.AddController(defaultAuthControllers.Introspection(), "/token", "POST")
-	l.AddController(defaultAuthControllers.Introspection(), "/{tenantId}/token", "POST")
-	l.AddController(defaultAuthControllers.Introspection(), "/token/introspect", "POST")
-	l.AddController(defaultAuthControllers.Introspection(), "/{tenantId}/token/introspect", "POST")
+	l.AddController(defaultAuthControllers.Token(), "/auth/token", "POST")
+	l.AddController(defaultAuthControllers.Token(), "/auth/{tenantId}/token", "POST")
+	l.AddController(defaultAuthControllers.Introspection(), "/auth/token/introspect", "POST")
+	l.AddController(defaultAuthControllers.Introspection(), "/auth/{tenantId}/token/introspect", "POST")
+	l.AddController(defaultAuthControllers.Introspection(), "/auth/register", "POST")
+	l.AddController(defaultAuthControllers.Introspection(), "/auth/{tenantId}/register", "POST")
+
+	l.AddController(defaultAuthControllers.Configuration(), "/auth/.well-known/openid-configuration", "GET")
+	l.AddController(defaultAuthControllers.Configuration(), "/auth/{tenantId}/.well-known/openid-configuration", "GET")
+	l.AddController(defaultAuthControllers.Jwks(), "/auth/.well-known/openid-configuration/jwks", "GET")
+	l.AddController(defaultAuthControllers.Jwks(), "/auth/{tenantId}/.well-known/openid-configuration/jwks", "GET")
 	l.DefaultAdapters = append([]controllers.Adapter{middleware.EndAuthorizationMiddlewareAdapter()}, l.DefaultAdapters...)
 	l.Options.EnableAuthentication = true
 	return l
 }
 
-func (l *HttpListener) WithAuthentication(context database.UserDatabaseAdapter) *HttpListener {
+func (l *HttpListener) WithAuthentication(context interfaces.UserDatabaseAdapter) *HttpListener {
 	ctx := execution_context.Get()
 	if ctx.Authorization != nil {
+		ctx.Authorization.ContextAdapter = context
 		if l.Options.UseAuthBackend {
 			l.Logger.Info("Found MongoDB connection string, enabling MongoDb auth backend...")
 		}
 		defaultAuthControllers := authControllers.NewAuthorizationControllers(context)
 
-		l.AddController(defaultAuthControllers.Token(), "/token", "POST")
-		l.AddController(defaultAuthControllers.Token(), "/{tenantId}/token", "POST")
-		l.AddController(defaultAuthControllers.Introspection(), "/token/introspect", "POST")
-		l.AddController(defaultAuthControllers.Introspection(), "/{tenantId}/token/introspect", "POST")
+		l.AddController(defaultAuthControllers.Token(), "/auth/token", "POST")
+		l.AddController(defaultAuthControllers.Token(), "/auth/{tenantId}/token", "POST")
+		l.AddController(defaultAuthControllers.Introspection(), "/auth/token/introspect", "POST")
+		l.AddController(defaultAuthControllers.Introspection(), "/auth/{tenantId}/token/introspect", "POST")
+		l.AddAuthorizedControllerWithRoles(defaultAuthControllers.Register(), "/auth/register", []string{"_admin"}, []string{}, "POST")
+		l.AddAuthorizedControllerWithRoles(defaultAuthControllers.Register(), "/auth/{tenantId}/register", []string{"_admin"}, []string{}, "POST")
+
+		l.AddController(defaultAuthControllers.Configuration(), "/auth/.well-known/openid-configuration", "GET")
+		l.AddController(defaultAuthControllers.Configuration(), "/auth/{tenantId}/.well-known/openid-configuration", "GET")
+		l.AddController(defaultAuthControllers.Jwks(), "/auth/.well-known/openid-configuration/jwks", "GET")
+		l.AddController(defaultAuthControllers.Jwks(), "/auth/{tenantId}/.well-known/openid-configuration/jwks", "GET")
 		l.DefaultAdapters = append([]controllers.Adapter{middleware.EndAuthorizationMiddlewareAdapter()}, l.DefaultAdapters...)
 		l.Options.EnableAuthentication = true
 	} else {
@@ -174,7 +189,29 @@ func (l *HttpListener) AddAuthorizedController(c controllers.Controller, path st
 	}
 	adapters := make([]controllers.Adapter, 0)
 	adapters = append(adapters, l.DefaultAdapters...)
-	adapters = append(adapters, middleware.AuthorizationMiddlewareAdapter())
+	adapters = append(adapters, middleware.AuthorizationMiddlewareAdapter([]string{}, []string{}))
+
+	if l.Options.ApiPrefix != "" {
+		path = l.Options.ApiPrefix + path
+	}
+
+	subRouter.HandleFunc(path,
+		controllers.Adapt(
+			http.HandlerFunc(c),
+			adapters...).ServeHTTP)
+}
+
+func (l *HttpListener) AddAuthorizedControllerWithRoles(c controllers.Controller, path string, roles []string, claims []string, methods ...string) {
+	l.Controllers = append(l.Controllers, c)
+	var subRouter *mux.Router
+	if len(methods) > 0 {
+		subRouter = l.Router.Methods(methods...).Subrouter()
+	} else {
+		subRouter = l.Router.Methods("GET").Subrouter()
+	}
+	adapters := make([]controllers.Adapter, 0)
+	adapters = append(adapters, l.DefaultAdapters...)
+	adapters = append(adapters, middleware.AuthorizationMiddlewareAdapter(roles, claims))
 
 	if l.Options.ApiPrefix != "" {
 		path = l.Options.ApiPrefix + path

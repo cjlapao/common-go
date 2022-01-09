@@ -3,6 +3,7 @@ package automapper
 // Based in the Peter Strøiman automapper with some additions
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -36,41 +37,64 @@ const (
 // It is a design decision to panic when a field cannot be mapped in the
 // destination to ensure that a renamed field in either the source or
 // destination does not result in subtle silent bug.
-func Map(source, dest interface{}, options ...MapOptions) {
+func Map(source, dest interface{}, options ...MapOptions) error {
+	var err error
 	var destType = reflect.TypeOf(dest)
 	if destType.Kind() != reflect.Ptr {
-		panic("Dest must be a pointer type")
+		return errors.New("dest must be a pointer type")
 	}
+
 	var sourceVal = reflect.ValueOf(source)
 	var destVal = reflect.ValueOf(dest).Elem()
 	if len(options) == 0 {
-		mapValues(sourceVal, destVal, false)
+		err = mapValues(sourceVal, destVal, false)
 	}
 	for _, option := range options {
 		switch option {
 		case Loose:
-			mapValues(sourceVal, destVal, true)
+			err = mapValues(sourceVal, destVal, true)
 		case RequestForm:
-			mapRequestForm(source, dest, "")
+			err = mapRequestForm(source, dest, "")
+			return err
 		case RequestFormWithJsonTag:
-			mapRequestForm(source, dest, "json")
+			err = mapRequestForm(source, dest, "json")
+			return err
 		}
 	}
+
+	return err
 }
 
-func mapRequestForm(source interface{}, dest interface{}, tag string) {
+func mapRequestForm(source interface{}, dest interface{}, tag string) error {
 	switch r := source.(type) {
 	case *http.Request:
-		r.ParseForm()
-		form := r.Form
+		var form url.Values
+
+		err := r.ParseForm()
+		if err == nil && len(r.Form) > 0 {
+			form = r.Form
+		}
+
+		if len(form) == 0 {
+			err = r.ParseMultipartForm(0)
+			if err == nil && len(r.Form) > 0 {
+				form = r.Form
+			}
+		}
+		if len(form) == 0 {
+			return errors.New("no data found to map")
+		}
+
 		if tag != "" {
 			mapFormValues(form, dest, true, tag)
 		} else {
 			mapFormValues(form, dest, false, tag)
 		}
 	default:
-		panic("Source must be a pointer http request")
+		return errors.New("source must be a pointer http request")
 	}
+
+	return nil
 }
 
 func mapFormValues(sourceVal url.Values, dest interface{}, useTag bool, tagName string) {
@@ -110,7 +134,8 @@ func mapFormValues(sourceVal url.Values, dest interface{}, useTag bool, tagName 
 	}
 }
 
-func mapValues(sourceVal, destVal reflect.Value, loose bool) {
+func mapValues(sourceVal, destVal reflect.Value, loose bool) error {
+	var err error
 	destType := destVal.Type()
 	if destType.Kind() == reflect.Struct {
 		if sourceVal.Type().Kind() == reflect.Ptr {
@@ -121,70 +146,91 @@ func mapValues(sourceVal, destVal reflect.Value, loose bool) {
 			sourceVal = sourceVal.Elem()
 		}
 		for i := 0; i < destVal.NumField(); i++ {
-			mapField(sourceVal, destVal, i, loose)
+			err = mapField(sourceVal, destVal, i, loose)
+			if err != nil {
+				return err
+			}
 		}
 	} else if destType == sourceVal.Type() {
 		destVal.Set(sourceVal)
 	} else if destType.Kind() == reflect.Ptr {
 		if valueIsNil(sourceVal) {
-			return
+			return nil
 		}
 		val := reflect.New(destType.Elem())
-		mapValues(sourceVal, val.Elem(), loose)
+		err = mapValues(sourceVal, val.Elem(), loose)
+		if err != nil {
+			return err
+		}
 		destVal.Set(val)
 	} else if destType.Kind() == reflect.Slice {
-		mapSlice(sourceVal, destVal, loose)
+		err := mapSlice(sourceVal, destVal, loose)
+		if err != nil {
+			return err
+		}
 	} else {
-		panic("Currently not supported")
+		return errors.New("currently not supported")
 	}
+	return err
 }
 
-func mapSlice(sourceVal, destVal reflect.Value, loose bool) {
+func mapSlice(sourceVal, destVal reflect.Value, loose bool) error {
+	var err error
 	destType := destVal.Type()
 	length := sourceVal.Len()
 	target := reflect.MakeSlice(destType, length, length)
 	for j := 0; j < length; j++ {
 		val := reflect.New(destType.Elem()).Elem()
-		mapValues(sourceVal.Index(j), val, loose)
+		err = mapValues(sourceVal.Index(j), val, loose)
+		if err != nil {
+			return err
+		}
 		target.Index(j).Set(val)
 	}
 
 	if length == 0 {
-		verifyArrayTypesAreCompatible(sourceVal, destVal, loose)
+		err = verifyArrayTypesAreCompatible(sourceVal, destVal, loose)
 	}
 	destVal.Set(target)
+	return err
 }
 
-func verifyArrayTypesAreCompatible(sourceVal, destVal reflect.Value, loose bool) {
+func verifyArrayTypesAreCompatible(sourceVal, destVal reflect.Value, loose bool) error {
 	dummyDest := reflect.New(reflect.PtrTo(destVal.Type()))
 	dummySource := reflect.MakeSlice(sourceVal.Type(), 1, 1)
-	mapValues(dummySource, dummyDest.Elem(), loose)
+	err := mapValues(dummySource, dummyDest.Elem(), loose)
+	return err
 }
 
-func mapField(source, destVal reflect.Value, i int, loose bool) {
+func mapField(source, destVal reflect.Value, i int, loose bool) error {
+	var err error
 	destType := destVal.Type()
 	fieldName := destType.Field(i).Name
 	defer func() {
 		if r := recover(); r != nil {
-			panic(fmt.Sprintf("Error mapping field: %s. DestType: %v. SourceType: %v. Error: %v", fieldName, destType, source.Type(), r))
+			err = fmt.Errorf("error mapping field: %s. DestType: %v. SourceType: %v. Error: %v", fieldName, destType, source.Type(), r)
+			panic(err.Error())
 		}
 	}()
 
 	destField := destVal.Field(i)
 	if destType.Field(i).Anonymous {
-		mapValues(source, destField, loose)
+		err = mapValues(source, destField, loose)
 	} else {
 		if valueIsContainedInNilEmbeddedType(source, fieldName) {
-			return
+			return nil
 		}
 		sourceField := source.FieldByName(fieldName)
 		if (sourceField == reflect.Value{}) {
 			if loose {
-				return
+				return nil
 			}
 			if destField.Kind() == reflect.Struct {
-				mapValues(source, destField, loose)
-				return
+				err := mapValues(source, destField, loose)
+				if err != nil {
+					return err
+				}
+				return nil
 			} else {
 				for i := 0; i < source.NumField(); i++ {
 					if source.Field(i).Kind() != reflect.Struct {
@@ -196,8 +242,10 @@ func mapField(source, destVal reflect.Value, i int, loose bool) {
 				}
 			}
 		}
-		mapValues(sourceField, destField, loose)
+		err = mapValues(sourceField, destField, loose)
 	}
+
+	return err
 }
 
 func valueIsNil(value reflect.Value) bool {

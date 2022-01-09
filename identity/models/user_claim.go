@@ -1,6 +1,9 @@
 package models
 
-import "github.com/google/uuid"
+import (
+	"github.com/cjlapao/common-go/identity/constants"
+	"github.com/google/uuid"
+)
 
 type UserClaim struct {
 	ID   string `json:"id" bson:"_id"`
@@ -24,4 +27,9 @@ func (uc UserClaim) IsValid() bool {
 	}
 
 	return true
+}
+
+var ReadClaim = UserClaim{
+	ID:   constants.CanView,
+	Name: "Can View",
 }

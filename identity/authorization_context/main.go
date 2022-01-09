@@ -2,12 +2,15 @@ package authorization_context
 
 import (
 	"errors"
+	"net/http"
 	"strings"
 	"time"
 
 	"github.com/cjlapao/common-go/configuration"
+	"github.com/cjlapao/common-go/identity/interfaces"
 	"github.com/cjlapao/common-go/identity/jwt_keyvault"
 	"github.com/cjlapao/common-go/security/encryption"
+	"github.com/cjlapao/common-go/service_provider"
 )
 
 type AuthorizationContext struct {
@@ -16,6 +19,7 @@ type AuthorizationContext struct {
 	Options           AuthorizationOptions
 	ValidationOptions AuthorizationValidationOptions
 	KeyVault          *jwt_keyvault.JwtKeyVaultService
+	ContextAdapter    interfaces.UserDatabaseAdapter
 }
 
 var currentAuthorizationContext *AuthorizationContext
@@ -65,7 +69,7 @@ func (a *AuthorizationContext) WithDefaultOptions() *AuthorizationContext {
 	privateKey := config.GetString("JWT" + keyId + "_PRIVATE_KEY")
 
 	if issuer == "" {
-		issuer = "localhost"
+		issuer = "http://localhost/api/auth/global"
 	}
 
 	if tokenDuration == 0 {
@@ -140,6 +144,12 @@ func (a *AuthorizationContext) WithScope(scope string) *AuthorizationContext {
 	a.Options.Scope = scope
 
 	return a
+}
+
+func (a *AuthorizationContext) SetRequestIssuer(r *http.Request, tenantId string) string {
+	baseUrl := service_provider.Get().GetBaseUrl(r)
+	a.Options.Issuer = baseUrl + "/auth/" + tenantId
+	return a.Options.Issuer
 }
 
 func GetCurrent() *AuthorizationContext {

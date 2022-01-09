@@ -29,13 +29,14 @@ func NewFactory(connectionString string) *MongoFactory {
 	factory.Logger = log.Get()
 	factory.GetClient()
 	factory.GetContext()
-	factory.Logger.Info("init done")
+	factory.Logger.Info("MongoDB Factory initiated successfully.")
 	return &factory
 }
 
 func (f *MongoFactory) WithDatabase(databaseName string) *MongoFactory {
 	f.DatabaseCxt.DatabaseName = databaseName
 	f.GetDatabase()
+	f.Logger.Info("MongoDB Factory database %v initiated successfully.", databaseName)
 	return f
 }
 
