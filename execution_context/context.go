@@ -11,6 +11,7 @@ import (
 	"github.com/cjlapao/common-go/cryptorand"
 	"github.com/cjlapao/common-go/helper/reflect_helper"
 	"github.com/cjlapao/common-go/identity/authorization_context"
+	"github.com/cjlapao/common-go/identity/interfaces"
 	"github.com/cjlapao/common-go/service_provider"
 )
 
@@ -18,16 +19,17 @@ var contextService *Context
 
 // Context entity
 type Context struct {
-	Configuration *configuration.ConfigurationService
-	Services      *service_provider.ServiceProvider
-	Caches        *cache.CacheService
-	TokenCache    *jwt_token_cache.JwtTokenCacheProvider
-	Authorization *authorization_context.AuthorizationContext
-	CorrelationId string
-	Environment   string
-	IsDevelopment bool
-	Debug         bool
-	Init          func() error
+	Configuration       *configuration.ConfigurationService
+	Services            *service_provider.ServiceProvider
+	Caches              *cache.CacheService
+	TokenCache          *jwt_token_cache.JwtTokenCacheProvider
+	Authorization       *authorization_context.AuthorizationContext
+	UserDatabaseAdapter interfaces.UserDatabaseAdapter
+	CorrelationId       string
+	Environment         string
+	IsDevelopment       bool
+	Debug               bool
+	Init                func() error
 }
 
 func New() (*Context, error) {

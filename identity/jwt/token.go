@@ -69,7 +69,7 @@ func GenerateUserTokenForKeyAndAudiences(keyId string, user models.User, audienc
 	now := time.Now().Round(time.Second)
 	nowSkew := now.Add((time.Minute * 2))
 	nowNegativeSkew := now.Add((time.Minute * 2) * -1)
-	validUntil := nowSkew.Add(time.Hour * 1)
+	validUntil := nowSkew.Add(time.Minute * time.Duration(ctx.Authorization.Options.TokenDuration))
 
 	userTokenClaims.Subject = user.Email
 	userTokenClaims.Issuer = ctx.Authorization.Options.Issuer

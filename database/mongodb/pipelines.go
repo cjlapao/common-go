@@ -66,16 +66,17 @@ func (pipelineBuilder *PipelineBuilder) Page(page int, pageSize int) *PipelineBu
 
 func (pipelineBuilder *PipelineBuilder) GetCount(collection *mongo.Collection) int {
 	ctx := context.Background()
-	cursor, err := pipelineBuilder.Count().Aggregate(ctx, collection)
+	cursor, err := pipelineBuilder.Count().AggregateUserWithCount(ctx, collection)
 	if err != nil {
 		return -1
 	}
-	var element map[string]interface{}
-	for cursor.Next(ctx) {
-		cursor.Decode(&element)
+	var element []map[string]interface{}
+	err = cursor.All(ctx, &element)
+	if err != nil || len(element) == 0 {
+		return 0
 	}
 
-	return int(element["count"].(int32))
+	return int(element[0]["count"].(int32))
 }
 
 func (pipelineBuilder *PipelineBuilder) Count() *PipelineBuilder {
@@ -182,6 +183,72 @@ func (pipelineBuilder *PipelineBuilder) Sort(field string, order MongoSort) *Pip
 	return pipelineBuilder
 }
 
+func (pipelineBuilder *PipelineBuilder) SortAfter(field string, order MongoSort) *PipelineBuilder {
+	sortPipeline := Pipeline{
+		Type: "SORT_AFTER",
+		Primitive: bson.D{
+			{
+				Key: "$sort",
+				Value: bson.D{
+					{
+						Key:   field,
+						Value: order,
+					},
+				},
+			},
+		},
+	}
+
+	has, index := pipelineBuilder.Has("SORT_AFTER")
+	if !has {
+		pipelineBuilder.Pipelines = append(pipelineBuilder.Pipelines, sortPipeline)
+	} else {
+		pipelineBuilder.Pipelines[index] = sortPipeline
+	}
+
+	return pipelineBuilder
+}
+
+func (pipelineBuilder *PipelineBuilder) GetUserPipeline() *bson.A {
+	pipelines := bson.A{}
+	// Appending the user pipelines if they exist
+	for _, pipeline := range pipelineBuilder.Pipelines {
+		if pipeline.Type == "USER" {
+			pipelines = append(pipelines, pipeline.Primitive)
+		}
+	}
+
+	return &pipelines
+}
+
+func (pipelineBuilder *PipelineBuilder) GetUserPipelineWithCount() *bson.A {
+	pipelines := bson.A{}
+	// Appending the user pipelines if they exist
+	for _, pipeline := range pipelineBuilder.Pipelines {
+		if pipeline.Type == "USER" {
+			pipelines = append(pipelines, pipeline.Primitive)
+		}
+	}
+
+	// Appending Match  if it exists
+	for _, pipeline := range pipelineBuilder.Pipelines {
+		if pipeline.Type == "MATCH" {
+			pipelines = append(pipelines, pipeline.Primitive)
+			break
+		}
+	}
+
+	// Appending the count pipelines if they exist
+	for _, pipeline := range pipelineBuilder.Pipelines {
+		if pipeline.Type == "COUNT" {
+			pipelines = append(pipelines, pipeline.Primitive)
+			break
+		}
+	}
+
+	return &pipelines
+}
+
 func (pipelineBuilder *PipelineBuilder) Get() *bson.A {
 	pipelines := bson.A{}
 	pipelineBuilder.getFilterPipeline()
@@ -198,6 +265,14 @@ func (pipelineBuilder *PipelineBuilder) Get() *bson.A {
 	for _, pipeline := range pipelineBuilder.Pipelines {
 		if pipeline.Type == "USER" {
 			pipelines = append(pipelines, pipeline.Primitive)
+		}
+	}
+
+	// Appending first the sort if it exists
+	for _, pipeline := range pipelineBuilder.Pipelines {
+		if pipeline.Type == "SORT_AFTER" {
+			pipelines = append(pipelines, pipeline.Primitive)
+			break
 		}
 	}
 
@@ -238,6 +313,14 @@ func (pipelineBuilder *PipelineBuilder) Get() *bson.A {
 
 func (pipelineBuilder *PipelineBuilder) Aggregate(ctx context.Context, collection *mongo.Collection) (*mongo.Cursor, error) {
 	return collection.Aggregate(ctx, *pipelineBuilder.Get())
+}
+
+func (pipelineBuilder *PipelineBuilder) AggregateUser(ctx context.Context, collection *mongo.Collection) (*mongo.Cursor, error) {
+	return collection.Aggregate(ctx, *pipelineBuilder.GetUserPipeline())
+}
+
+func (pipelineBuilder *PipelineBuilder) AggregateUserWithCount(ctx context.Context, collection *mongo.Collection) (*mongo.Cursor, error) {
+	return collection.Aggregate(ctx, *pipelineBuilder.GetUserPipelineWithCount())
 }
 
 func (pipelineBuilder *PipelineBuilder) Has(key string) (bool, int) {

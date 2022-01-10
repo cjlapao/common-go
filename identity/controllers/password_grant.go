@@ -56,7 +56,7 @@ func (passwordGrantFlow PasswordGrantFlow) Authenticate(controller *Authorizatio
 
 	controller.UserAdapter.UpdateUserRefreshToken(user.ID, token.RefreshToken)
 
-	expiresIn := ctx.Authorization.Options.TokenDuration.Seconds()
+	expiresIn := ctx.Authorization.Options.TokenDuration * 60
 	response := models.OAuthLoginResponse{
 		AccessToken:  token.Token,
 		RefreshToken: token.RefreshToken,
@@ -120,7 +120,7 @@ func (passwordGrantFlow PasswordGrantFlow) RefreshToken(controller *Authorizatio
 		return nil, &errorResponse
 	}
 
-	expiresIn := ctx.Authorization.Options.TokenDuration.Seconds()
+	expiresIn := ctx.Authorization.Options.TokenDuration * 60
 	response := models.OAuthLoginResponse{
 		AccessToken:  newToken.Token,
 		RefreshToken: request.RefreshToken,

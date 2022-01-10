@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/cjlapao/common-go/automapper"
 	"github.com/cjlapao/common-go/controllers"
 	"github.com/cjlapao/common-go/execution_context"
+	"github.com/cjlapao/common-go/helper/http_helper"
 	"github.com/cjlapao/common-go/identity/models"
 	"github.com/cjlapao/common-go/service_provider"
 	"github.com/gorilla/mux"
@@ -22,7 +22,8 @@ func (c *AuthorizationControllers) Token() controllers.Controller {
 		tenantId := vars["tenantId"]
 
 		var loginRequest models.OAuthLoginRequest
-		automapper.Map(r, &loginRequest, automapper.RequestFormWithJsonTag)
+		http_helper.MapRequestBody(r, &loginRequest)
+		// automapper.Map(r, &loginRequest, automapper.RequestFormWithJsonTag)
 
 		// if no tenant is set we will assume it is the global tenant
 		if tenantId == "" {

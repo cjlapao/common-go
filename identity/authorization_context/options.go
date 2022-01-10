@@ -1,8 +1,6 @@
 package authorization_context
 
 import (
-	"time"
-
 	"github.com/cjlapao/common-go/security/encryption"
 )
 
@@ -10,7 +8,7 @@ type AuthorizationOptions struct {
 	Issuer        string
 	Audiences     []string
 	Scope         string
-	TokenDuration time.Duration
+	TokenDuration int
 	SignatureType encryption.EncryptionKeyType
 	SignatureSize encryption.EncryptionKeySize
 	PrivateKey    string

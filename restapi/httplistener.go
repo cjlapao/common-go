@@ -134,7 +134,7 @@ func (l *HttpListener) WithDefaultAuthentication() *HttpListener {
 func (l *HttpListener) WithAuthentication(context interfaces.UserDatabaseAdapter) *HttpListener {
 	ctx := execution_context.Get()
 	if ctx.Authorization != nil {
-		ctx.Authorization.ContextAdapter = context
+		ctx.UserDatabaseAdapter = context
 		if l.Options.UseAuthBackend {
 			l.Logger.Info("Found MongoDB connection string, enabling MongoDb auth backend...")
 		}

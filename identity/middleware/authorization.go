@@ -53,7 +53,7 @@ func AuthorizationMiddlewareAdapter(roles []string, claims []string) controllers
 
 			if authorized {
 				// Getting user roles and claims
-				dbUser := ctx.Authorization.ContextAdapter.GetUserByEmail(userToken.User)
+				dbUser := ctx.UserDatabaseAdapter.GetUserByEmail(userToken.User)
 				validatedRoles := make(map[string]bool)
 				// validatedClaims := make(map[string]bool)
 				if !dbUser.IsValid() {

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/cjlapao/common-go/configuration"
 	"github.com/cjlapao/common-go/identity/interfaces"
@@ -25,7 +24,7 @@ type AuthorizationContext struct {
 var currentAuthorizationContext *AuthorizationContext
 
 func NewFromUser(user *ContextUser) *AuthorizationContext {
-	currentAuthorizationContext = &AuthorizationContext{
+	newContext := AuthorizationContext{
 		User: user,
 		ValidationOptions: AuthorizationValidationOptions{
 			Audiences:     false,
@@ -38,9 +37,10 @@ func NewFromUser(user *ContextUser) *AuthorizationContext {
 		},
 	}
 
-	currentAuthorizationContext.KeyVault = jwt_keyvault.Get()
-	currentAuthorizationContext.WithDefaultOptions()
+	newContext.KeyVault = jwt_keyvault.Get()
+	newContext.WithDefaultOptions()
 
+	currentAuthorizationContext = &newContext
 	return currentAuthorizationContext
 }
 
@@ -69,7 +69,20 @@ func (a *AuthorizationContext) WithDefaultOptions() *AuthorizationContext {
 	privateKey := config.GetString("JWT" + keyId + "_PRIVATE_KEY")
 
 	if issuer == "" {
-		issuer = "http://localhost/api/auth/global"
+		apiPort := config.GetString("HTTP_PORT")
+		apiPrefix := config.GetString("API_PREFIX")
+		issuer = "http://localhost"
+		if apiPort != "" {
+			issuer += ":" + apiPort
+		}
+		if apiPrefix != "" {
+			if strings.HasPrefix(apiPrefix, "/") {
+				issuer += apiPrefix
+			} else {
+				issuer += "/" + apiPrefix
+			}
+		}
+		issuer += "/auth/global"
 	}
 
 	if tokenDuration == 0 {
@@ -86,7 +99,7 @@ func (a *AuthorizationContext) WithDefaultOptions() *AuthorizationContext {
 
 	a.Options = AuthorizationOptions{
 		Issuer:        issuer,
-		TokenDuration: time.Minute * time.Duration(tokenDuration),
+		TokenDuration: tokenDuration,
 		Scope:         tokenScope,
 	}
 
@@ -135,7 +148,7 @@ func (a *AuthorizationContext) WithIssuer(issuer string) *AuthorizationContext {
 }
 
 func (a *AuthorizationContext) WithDuration(tokenDuration int) *AuthorizationContext {
-	a.Options.TokenDuration = time.Minute * time.Duration(tokenDuration)
+	a.Options.TokenDuration = tokenDuration
 
 	return a
 }
