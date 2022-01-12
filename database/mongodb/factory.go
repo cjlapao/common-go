@@ -114,6 +114,6 @@ func (f *MongoFactory) GetCollection(collectionName string) *mongo.Collection {
 		return nil
 	}
 
-	f.Logger.Debug("Database was retrieved successfully")
+	f.Logger.Debug("Collection was retrieved successfully")
 	return collection
 }

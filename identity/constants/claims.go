@@ -1,10 +1,10 @@
 package constants
 
 const (
-	CanUpsert     = "CANUPSERT"
-	CanView       = "CANVIEW"
-	CanRemove     = "CANREMOVE"
-	CanUpsertUser = "CANUPSERTUSER"
-	CanViewUser   = "CANVIEWUSER"
-	CanRemoveUser = "CANREMOVEUSER"
+	CanUpsert     = "_readwrite"
+	CanView       = "_read"
+	CanRemove     = "_remove"
+	CanUpsertUser = "_readwrite_user"
+	CanViewUser   = "_read_user"
+	CanRemoveUser = "_remove_user"
 )

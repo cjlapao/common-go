@@ -33,3 +33,13 @@ var ReadClaim = UserClaim{
 	ID:   constants.CanView,
 	Name: "Can View",
 }
+
+var ReadWriteClaim = UserClaim{
+	ID:   constants.CanUpsert,
+	Name: "Can Edit/Change",
+}
+
+var RemoveClaim = UserClaim{
+	ID:   constants.CanUpsert,
+	Name: "Can Remove",
+}

@@ -47,8 +47,9 @@ func GetDefaultUsers() []models.User {
 	} else {
 		adminUser.Password = security.SHA256Encode(adminPassword)
 	}
-	roles := []models.UserRole{models.AdminRole, models.RegularUserRole}
-	adminUser.Roles = append(adminUser.Roles, roles...)
+
+	adminUser.Roles = append(adminUser.Roles, models.AdminRole, models.RegularUserRole)
+	adminUser.Claims = append(adminUser.Claims, models.ReadClaim, models.ReadWriteClaim, models.RemoveClaim)
 
 	demoUsername := config.GetString("DEMO_USERNAME")
 	demoPassword := config.GetString("DEMO_PASSWORD")
@@ -79,6 +80,7 @@ func GetDefaultUsers() []models.User {
 	}
 
 	demoUser.Roles = append(demoUser.Roles, models.RegularUserRole)
+	demoUser.Claims = append(demoUser.Claims, models.ReadClaim)
 
 	users = append(users, adminUser)
 	users = append(users, demoUser)

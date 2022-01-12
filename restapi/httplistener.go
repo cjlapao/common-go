@@ -144,8 +144,8 @@ func (l *HttpListener) WithAuthentication(context interfaces.UserDatabaseAdapter
 		l.AddController(defaultAuthControllers.Token(), "/auth/{tenantId}/token", "POST")
 		l.AddController(defaultAuthControllers.Introspection(), "/auth/token/introspect", "POST")
 		l.AddController(defaultAuthControllers.Introspection(), "/auth/{tenantId}/token/introspect", "POST")
-		l.AddAuthorizedControllerWithRoles(defaultAuthControllers.Register(), "/auth/register", []string{"_admin"}, []string{}, "POST")
-		l.AddAuthorizedControllerWithRoles(defaultAuthControllers.Register(), "/auth/{tenantId}/register", []string{"_admin"}, []string{}, "POST")
+		l.AddAuthorizedControllerWithRoles(defaultAuthControllers.Register(), "/auth/register", []string{"_admin"}, "POST")
+		l.AddAuthorizedControllerWithRoles(defaultAuthControllers.Register(), "/auth/{tenantId}/register", []string{"_admin"}, "POST")
 
 		l.AddController(defaultAuthControllers.Configuration(), "/auth/.well-known/openid-configuration", "GET")
 		l.AddController(defaultAuthControllers.Configuration(), "/auth/{tenantId}/.well-known/openid-configuration", "GET")
@@ -201,7 +201,15 @@ func (l *HttpListener) AddAuthorizedController(c controllers.Controller, path st
 			adapters...).ServeHTTP)
 }
 
-func (l *HttpListener) AddAuthorizedControllerWithRoles(c controllers.Controller, path string, roles []string, claims []string, methods ...string) {
+func (l *HttpListener) AddAuthorizedControllerWithRoles(c controllers.Controller, path string, roles []string, methods ...string) {
+	l.AddAuthorizedControllerWithRolesAndClaims(c, path, roles, []string{}, methods...)
+}
+
+func (l *HttpListener) AddAuthorizedControllerWithClaims(c controllers.Controller, path string, claims []string, methods ...string) {
+	l.AddAuthorizedControllerWithRolesAndClaims(c, path, []string{}, claims, methods...)
+}
+
+func (l *HttpListener) AddAuthorizedControllerWithRolesAndClaims(c controllers.Controller, path string, roles []string, claims []string, methods ...string) {
 	l.Controllers = append(l.Controllers, c)
 	var subRouter *mux.Router
 	if len(methods) > 0 {
