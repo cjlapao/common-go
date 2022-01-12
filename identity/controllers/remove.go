@@ -43,7 +43,7 @@ func (c *AuthorizationControllers) Remove() controllers.Controller {
 
 		baseUrl := service_provider.Get().GetBaseUrl(r)
 		ctx.Authorization.TenantId = tenantId
-		ctx.Authorization.Options.Issuer = baseUrl + "/auth/" + tenantId
+		ctx.Authorization.Issuer = baseUrl + "/auth/" + tenantId
 
 		user := models.NewUser()
 		user.Username = registerRequest.Username

@@ -62,7 +62,7 @@ func (passwordGrantFlow PasswordGrantFlow) Authenticate(controller *Authorizatio
 		RefreshToken: token.RefreshToken,
 		ExpiresIn:    fmt.Sprintf("%v", expiresIn),
 		TokenType:    "Bearer",
-		Scope:        ctx.Authorization.Options.Scope,
+		Scope:        ctx.Authorization.Scope,
 	}
 
 	logger.Success("Token for user %v was generated successfully", user.Username)
@@ -126,7 +126,7 @@ func (passwordGrantFlow PasswordGrantFlow) RefreshToken(controller *Authorizatio
 		RefreshToken: request.RefreshToken,
 		ExpiresIn:    fmt.Sprintf("%v", expiresIn),
 		TokenType:    "Bearer",
-		Scope:        ctx.Authorization.Options.Scope,
+		Scope:        ctx.Authorization.Scope,
 	}
 
 	todayPlus30 := time.Now().Add((time.Hour * 24) * 30)

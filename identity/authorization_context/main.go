@@ -15,6 +15,9 @@ import (
 type AuthorizationContext struct {
 	User              *ContextUser
 	TenantId          string
+	Issuer            string
+	Scope             string
+	Audiences         []string
 	Options           AuthorizationOptions
 	ValidationOptions AuthorizationValidationOptions
 	KeyVault          *jwt_keyvault.JwtKeyVaultService
@@ -35,6 +38,7 @@ func NewFromUser(user *ContextUser) *AuthorizationContext {
 			NotBefore:     false,
 			Tenant:        false,
 		},
+		Audiences: make([]string, 0),
 	}
 
 	newContext.KeyVault = jwt_keyvault.Get()
@@ -59,7 +63,7 @@ func (a *AuthorizationContext) WithDefaultOptions() *AuthorizationContext {
 	config := configuration.Get()
 	issuer := config.GetString("JWT_ISSUER")
 	tokenDuration := config.GetInt("JWT_TOKEN_DURATION")
-	tokenScope := config.GetString("JWT_SCOPE")
+	scope := config.GetString("JWT_SCOPE")
 	authorizationType := config.GetString("JWT_AUTH_TYPE")
 	keySize := config.GetString("JWT_KEY_SIZE")
 	keyId := config.GetString("JWT_KEY_ID")
@@ -84,23 +88,23 @@ func (a *AuthorizationContext) WithDefaultOptions() *AuthorizationContext {
 		}
 		issuer += "/auth/global"
 	}
+	a.Issuer = issuer
 
 	if tokenDuration == 0 {
 		tokenDuration = 60
 	}
 
-	if tokenScope == "" {
-		tokenScope = "authorization"
+	if scope == "" {
+		scope = "authorization"
 	}
+	a.Scope = scope
 
 	if authorizationType == "" {
 		authorizationType = "hmac"
 	}
 
 	a.Options = AuthorizationOptions{
-		Issuer:        issuer,
 		TokenDuration: tokenDuration,
-		Scope:         tokenScope,
 	}
 
 	if privateKey == "" {
@@ -128,21 +132,21 @@ func (a *AuthorizationContext) WithDefaultOptions() *AuthorizationContext {
 
 func (a *AuthorizationContext) WithAudience(audience string) *AuthorizationContext {
 	found := false
-	for _, inAudience := range a.Options.Audiences {
+	for _, inAudience := range a.Audiences {
 		if strings.EqualFold(inAudience, audience) {
 			found = true
 			break
 		}
 	}
 	if !found {
-		a.Options.Audiences = append(a.Options.Audiences, audience)
+		a.Audiences = append(a.Audiences, audience)
 	}
 
 	return a
 }
 
 func (a *AuthorizationContext) WithIssuer(issuer string) *AuthorizationContext {
-	a.Options.Issuer = issuer
+	a.Issuer = issuer
 
 	return a
 }
@@ -154,15 +158,15 @@ func (a *AuthorizationContext) WithDuration(tokenDuration int) *AuthorizationCon
 }
 
 func (a *AuthorizationContext) WithScope(scope string) *AuthorizationContext {
-	a.Options.Scope = scope
+	a.Scope = scope
 
 	return a
 }
 
 func (a *AuthorizationContext) SetRequestIssuer(r *http.Request, tenantId string) string {
 	baseUrl := service_provider.Get().GetBaseUrl(r)
-	a.Options.Issuer = baseUrl + "/auth/" + tenantId
-	return a.Options.Issuer
+	a.Issuer = baseUrl + "/auth/" + tenantId
+	return a.Issuer
 }
 
 func GetCurrent() *AuthorizationContext {

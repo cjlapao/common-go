@@ -38,6 +38,10 @@ func (u MongoDBContextAdapter) UpsertUser(user models.User) {
 	}
 }
 
+func (u MongoDBContextAdapter) RemoveUser(id string) bool {
+	return true
+}
+
 func (u MongoDBContextAdapter) GetUserRefreshToken(id string) *string {
 	user := u.GetUserById(id)
 	if user != nil {

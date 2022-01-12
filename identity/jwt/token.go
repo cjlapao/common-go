@@ -46,20 +46,20 @@ func GetTokenClaim(token string, claim string) string {
 func GenerateDefaultUserToken(user models.User) (*models.UserToken, error) {
 	ctx := execution_context.Get()
 
-	return GenerateUserTokenForAudiences("", user, ctx.Authorization.Options.Audiences...)
+	return GenerateUserTokenForAudiences("", user, ctx.Authorization.Audiences...)
 }
 
 // GenerateUserToken
 func GenerateUserToken(keyId string, user models.User) (*models.UserToken, error) {
 	ctx := execution_context.Get()
 
-	return GenerateUserTokenForAudiences(keyId, user, ctx.Authorization.Options.Audiences...)
+	return GenerateUserTokenForAudiences(keyId, user, ctx.Authorization.Audiences...)
 }
 
 func GenerateUserTokenForAudiences(keyId string, user models.User, audiences ...string) (*models.UserToken, error) {
 	ctx := execution_context.Get()
 
-	return GenerateUserTokenForKeyAndAudiences(keyId, user, ctx.Authorization.Options.Audiences...)
+	return GenerateUserTokenForKeyAndAudiences(keyId, user, ctx.Authorization.Audiences...)
 }
 
 func GenerateUserTokenForKeyAndAudiences(keyId string, user models.User, audiences ...string) (*models.UserToken, error) {
@@ -72,7 +72,7 @@ func GenerateUserTokenForKeyAndAudiences(keyId string, user models.User, audienc
 	validUntil := nowSkew.Add(time.Minute * time.Duration(ctx.Authorization.Options.TokenDuration))
 
 	userTokenClaims.Subject = user.Email
-	userTokenClaims.Issuer = ctx.Authorization.Options.Issuer
+	userTokenClaims.Issuer = ctx.Authorization.Issuer
 	userTokenClaims.Issued = jwt.NewNumericTime(nowSkew)
 	if ctx.Authorization.ValidationOptions.NotBefore {
 		userTokenClaims.NotBefore = jwt.NewNumericTime(nowNegativeSkew)
@@ -82,7 +82,7 @@ func GenerateUserTokenForKeyAndAudiences(keyId string, user models.User, audienc
 
 	// Adding Custom Claims to the token
 	userClaims := make(map[string]interface{})
-	userClaims["scope"] = ctx.Authorization.Options.Scope
+	userClaims["scope"] = ctx.Authorization.Scope
 	userClaims["uid"] = strings.ToLower(user.ID)
 	userClaims["name"] = user.DisplayName
 	userClaims["given_name"] = user.FirstName
@@ -155,7 +155,7 @@ func GenerateRefreshToken(keyId string, user models.User) (string, error) {
 	validUntil := nowSkew.Add((time.Hour * 24) * 365)
 
 	refreshTokenClaims.Subject = user.Email
-	refreshTokenClaims.Issuer = ctx.Authorization.Options.Issuer
+	refreshTokenClaims.Issuer = ctx.Authorization.Issuer
 	refreshTokenClaims.Issued = jwt.NewNumericTime(nowSkew)
 	if ctx.Authorization.ValidationOptions.NotBefore {
 		refreshTokenClaims.NotBefore = jwt.NewNumericTime(nowNegativeSkew)
@@ -194,7 +194,7 @@ func GenerateVerifyEmailToken(keyId string, user models.User) string {
 	validUntil := nowSkew.Add(time.Hour * 2)
 
 	emailVerificationTokenClaims.Subject = user.Email
-	emailVerificationTokenClaims.Issuer = ctx.Authorization.Options.Issuer
+	emailVerificationTokenClaims.Issuer = ctx.Authorization.Issuer
 	emailVerificationTokenClaims.Issued = jwt.NewNumericTime(nowSkew)
 	if ctx.Authorization.ValidationOptions.NotBefore {
 		emailVerificationTokenClaims.NotBefore = jwt.NewNumericTime(nowNegativeSkew)
@@ -288,7 +288,7 @@ func ValidateUserToken(token string, scope string, audiences ...string) (*models
 
 	// If we require the Issuer to be validated we will be validating it
 	if ctx.Authorization.ValidationOptions.Issuer {
-		if !strings.EqualFold(userToken.Issuer, ctx.Authorization.Options.Issuer) {
+		if !strings.EqualFold(userToken.Issuer, ctx.Authorization.Issuer) {
 			return &userToken, errors.New("token is not valid for subject " + userToken.DisplayName)
 		}
 	}
@@ -400,7 +400,7 @@ func ValidateRefreshToken(token string, user string) (*models.UserToken, error) 
 
 	// If we require the Issuer to be validated we will be validating it
 	if ctx.Authorization.ValidationOptions.Issuer {
-		if !strings.EqualFold(userToken.Issuer, ctx.Authorization.Options.Issuer) {
+		if !strings.EqualFold(userToken.Issuer, ctx.Authorization.Issuer) {
 			return &userToken, errors.New("token is not valid for subject " + userToken.DisplayName)
 		}
 	}

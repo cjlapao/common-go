@@ -5,9 +5,6 @@ import (
 )
 
 type AuthorizationOptions struct {
-	Issuer        string
-	Audiences     []string
-	Scope         string
 	TokenDuration int
 	SignatureType encryption.EncryptionKeyType
 	SignatureSize encryption.EncryptionKeySize

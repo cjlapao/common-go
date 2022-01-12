@@ -58,6 +58,10 @@ func (c *MemoryUserContextAdapter) UpsertUser(user models.User) {
 	c.Users = append(c.Users, user)
 }
 
+func (u MemoryUserContextAdapter) RemoveUser(id string) bool {
+	return true
+}
+
 func (c *MemoryUserContextAdapter) GetUserRefreshToken(id string) *string {
 	user := c.GetUserById(id)
 	token := ""

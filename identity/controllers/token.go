@@ -23,7 +23,6 @@ func (c *AuthorizationControllers) Token() controllers.Controller {
 
 		var loginRequest models.OAuthLoginRequest
 		http_helper.MapRequestBody(r, &loginRequest)
-		// automapper.Map(r, &loginRequest, automapper.RequestFormWithJsonTag)
 
 		// if no tenant is set we will assume it is the global tenant
 		if tenantId == "" {
@@ -33,7 +32,7 @@ func (c *AuthorizationControllers) Token() controllers.Controller {
 		baseUrl := service_provider.Get().GetBaseUrl(r)
 		ctx.Authorization.TenantId = tenantId
 
-		ctx.Authorization.Options.Issuer = baseUrl + "/auth/" + tenantId
+		ctx.Authorization.Issuer = baseUrl + "/auth/" + tenantId
 
 		if c.UserAdapter == nil {
 			w.WriteHeader(http.StatusUnauthorized)

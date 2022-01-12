@@ -50,7 +50,7 @@ func AuthorizationMiddlewareAdapter(roles []string, claims []string) controllers
 
 			// Validating userToken against the keys
 			if authorized {
-				userToken, err = jwt.ValidateUserToken(jwt_token, ctx.Authorization.Options.Scope)
+				userToken, err = jwt.ValidateUserToken(jwt_token, ctx.Authorization.Scope)
 				if validateError != nil {
 					authorized = false
 					validateError = errors.New("bearer token is not valid, " + err.Error())
@@ -175,9 +175,22 @@ func validateUserRoles(user *models.User, requiredRoles []string) error {
 				for _, requiredRole := range requiredRoles {
 					foundRole := false
 					for _, role := range user.Roles {
-						if strings.EqualFold(requiredRole, role.ID) {
-							foundRole = true
-							break
+						requiredRoleArr := strings.Split(requiredRole, ",")
+						if len(requiredRoleArr) == 1 {
+							if strings.EqualFold(requiredRole, role.ID) {
+								foundRole = true
+								break
+							}
+						} else if len(requiredRoleArr) > 1 {
+							for _, splitRequiredRole := range requiredRoleArr {
+								if strings.EqualFold(splitRequiredRole, role.ID) {
+									foundRole = true
+									break
+								}
+							}
+							if foundRole {
+								break
+							}
 						}
 					}
 
@@ -223,9 +236,22 @@ func validateUserClaims(user *models.User, requiredClaims []string) error {
 				for _, requiredClaim := range requiredClaims {
 					foundClaim := false
 					for _, claim := range user.Claims {
-						if strings.EqualFold(requiredClaim, claim.ID) {
-							foundClaim = true
-							break
+						requiredClaimArr := strings.Split(requiredClaim, ",")
+						if len(requiredClaimArr) == 1 {
+							if strings.EqualFold(requiredClaim, claim.ID) {
+								foundClaim = true
+								break
+							}
+						} else if len(requiredClaimArr) > 1 {
+							for _, splitRequiredClaim := range requiredClaimArr {
+								if strings.EqualFold(splitRequiredClaim, claim.ID) {
+									foundClaim = true
+									break
+								}
+							}
+							if foundClaim {
+								break
+							}
 						}
 					}
 

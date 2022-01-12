@@ -40,7 +40,7 @@ func (c *AuthorizationControllers) Introspection() controllers.Controller {
 			return
 		}
 
-		userToken, err := jwt.ValidateUserToken(token, ctx.Authorization.Options.Scope, ctx.Authorization.Options.Audiences...)
+		userToken, err := jwt.ValidateUserToken(token, ctx.Authorization.Scope, ctx.Authorization.Audiences...)
 
 		if err != nil {
 			response := models.OAuthIntrospectResponse{

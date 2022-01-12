@@ -19,11 +19,9 @@ func (c *AuthorizationControllers) Register() controllers.Controller {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var errorResponse models.OAuthErrorResponse
 		var registerRequest models.OAuthRegisterRequest
-		ctx := execution_context.Get()
-		vars := mux.Vars(r)
-		tenantId := vars["tenantId"]
 
-		if c.UserAdapter == nil {
+		ctx := execution_context.Get()
+		if ctx.UserDatabaseAdapter == nil {
 			w.WriteHeader(http.StatusUnauthorized)
 			errorResponse = models.OAuthErrorResponse{
 				Error:            models.OAuthInvalidRequestError,
@@ -34,17 +32,19 @@ func (c *AuthorizationControllers) Register() controllers.Controller {
 			return
 		}
 
-		http_helper.MapRequestBody(r, &registerRequest)
+		vars := mux.Vars(r)
+		tenantId := vars["tenantId"]
 
 		// if no tenant is set we will assume it is the global tenant
 		if tenantId == "" {
 			tenantId = "global"
 		}
 
+		http_helper.MapRequestBody(r, &registerRequest)
+
 		baseUrl := service_provider.Get().GetBaseUrl(r)
 		ctx.Authorization.TenantId = tenantId
-
-		ctx.Authorization.Options.Issuer = baseUrl + "/auth/" + tenantId
+		ctx.Authorization.Issuer = baseUrl + "/auth/" + tenantId
 
 		user := models.NewUser()
 		user.Username = registerRequest.Username
@@ -55,6 +55,7 @@ func (c *AuthorizationControllers) Register() controllers.Controller {
 		user.Password = security.SHA256Encode(registerRequest.Password)
 		user.InvalidAttempts = 0
 		user.EmailVerified = false
+
 		if registerRequest.Claims != nil && len(registerRequest.Claims) > 0 {
 			for _, claim := range registerRequest.Claims {
 				user.Claims = append(user.Claims, models.NewUserClaim(claim))
@@ -82,7 +83,7 @@ func (c *AuthorizationControllers) Register() controllers.Controller {
 			return
 		}
 
-		dbUser := c.UserAdapter.GetUserByEmail(user.Email)
+		dbUser := ctx.UserDatabaseAdapter.GetUserByEmail(user.Email)
 		if dbUser.Email != "" {
 			w.WriteHeader(http.StatusBadRequest)
 			errorResponse = models.OAuthErrorResponse{
@@ -94,7 +95,7 @@ func (c *AuthorizationControllers) Register() controllers.Controller {
 			return
 		}
 
-		c.UserAdapter.UpsertUser(*user)
+		ctx.UserDatabaseAdapter.UpsertUser(*user)
 
 		json.NewEncoder(w).Encode(user)
 	}
