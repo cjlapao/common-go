@@ -30,16 +30,16 @@ func (uc UserClaim) IsValid() bool {
 }
 
 var ReadClaim = UserClaim{
-	ID:   constants.CanView,
+	ID:   constants.CanReadClaim,
 	Name: "Can View",
 }
 
 var ReadWriteClaim = UserClaim{
-	ID:   constants.CanUpsert,
+	ID:   constants.CanUpsertClaim,
 	Name: "Can Edit/Change",
 }
 
 var RemoveClaim = UserClaim{
-	ID:   constants.CanUpsert,
+	ID:   constants.CanUpsertClaim,
 	Name: "Can Remove",
 }

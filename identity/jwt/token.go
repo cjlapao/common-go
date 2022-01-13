@@ -6,7 +6,6 @@ import (
 	"crypto/rsa"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -18,28 +17,6 @@ import (
 	"github.com/cjlapao/common-go/security/encryption"
 	"github.com/pascaldekloe/jwt"
 )
-
-func GetTokenClaim(token string, claim string) string {
-	if token == "" || claim == "" {
-		return ""
-	}
-
-	jwtToken, err := jwt.ParseWithoutCheck([]byte(token))
-
-	if err != nil {
-		return ""
-	}
-
-	// Transforming token into a user token
-	rawJsonToken, _ := jwtToken.Raw.MarshalJSON()
-	var tokenMap map[string]interface{}
-	err = json.Unmarshal(rawJsonToken, &tokenMap)
-	if err != nil {
-		return ""
-	}
-
-	return fmt.Sprintf("%v", tokenMap[claim])
-}
 
 // GenerateDefaultUserToken generates a jwt user token with the default audiences in the context
 // It returns a user token object and an error if it exists
@@ -108,7 +85,7 @@ func GenerateUserTokenForKeyAndAudiences(keyId string, user models.User, audienc
 	// Reading all of the roles
 	roles := make([]string, 0)
 	for _, role := range user.Roles {
-		roles = append(roles, role.Name)
+		roles = append(roles, role.ID)
 	}
 	userClaims["roles"] = roles
 
@@ -152,7 +129,7 @@ func GenerateRefreshToken(keyId string, user models.User) (string, error) {
 	now := time.Now().Round(time.Second)
 	nowSkew := now.Add((time.Hour * 2))
 	nowNegativeSkew := now.Add((time.Minute * 2) * -1)
-	validUntil := nowSkew.Add((time.Hour * 24) * 365)
+	validUntil := nowSkew.Add(time.Minute * time.Duration(ctx.Authorization.Options.RefreshTokenDuration))
 
 	refreshTokenClaims.Subject = user.Email
 	refreshTokenClaims.Issuer = ctx.Authorization.Issuer
@@ -191,7 +168,7 @@ func GenerateVerifyEmailToken(keyId string, user models.User) string {
 	now := time.Now().Round(time.Second)
 	nowSkew := now.Add((time.Hour * 2))
 	nowNegativeSkew := now.Add((time.Minute * 2) * -1)
-	validUntil := nowSkew.Add(time.Hour * 2)
+	validUntil := nowSkew.Add(time.Minute * time.Duration(ctx.Authorization.Options.VerifyEmailTokenDuration))
 
 	emailVerificationTokenClaims.Subject = user.Email
 	emailVerificationTokenClaims.Issuer = ctx.Authorization.Issuer

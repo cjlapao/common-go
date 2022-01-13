@@ -4,6 +4,7 @@ const (
 	DEBUG_ENVIRONMENT = "CJ_ENABLE_DEBUG"
 	TRACE_ENVIRONMENT = "CJ_ENABLE_TRACE"
 	ENVIRONMENT       = "CJ_ENVIRONMENT"
+	ID_SIZE           = 45
 )
 
 func AlphaCharacters() []string {

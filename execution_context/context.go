@@ -50,7 +50,7 @@ func InitNewContext(init func() error) (*Context, error) {
 	contextService.Configuration = configuration.Get()
 	contextService.Caches = cache.Get()
 	contextService.TokenCache = jwt_token_cache.New()
-	contextService.CorrelationId = cryptorand.GenerateRandomString(45)
+	contextService.CorrelationId = cryptorand.GenerateRandomString(constants.ID_SIZE)
 	contextService.Services = service_provider.Get()
 	os.Setenv("CORRELATION_ID", contextService.CorrelationId)
 
@@ -112,7 +112,7 @@ func (c *Context) WithAuthorization(options authorization_context.AuthorizationO
 }
 
 func (c *Context) Refresh() *Context {
-	c.CorrelationId = cryptorand.GenerateRandomString(45)
+	c.CorrelationId = cryptorand.GenerateRandomString(constants.ID_SIZE)
 	os.Setenv("CORRELATION_ID", c.CorrelationId)
 	return c
 }

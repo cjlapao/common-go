@@ -8,12 +8,13 @@ import (
 	"github.com/cjlapao/common-go/configuration"
 	"github.com/cjlapao/common-go/identity/interfaces"
 	"github.com/cjlapao/common-go/identity/jwt_keyvault"
+	"github.com/cjlapao/common-go/log"
 	"github.com/cjlapao/common-go/security/encryption"
 	"github.com/cjlapao/common-go/service_provider"
 )
 
 type AuthorizationContext struct {
-	User              *ContextUser
+	User              *UserContext
 	TenantId          string
 	Issuer            string
 	Scope             string
@@ -26,7 +27,7 @@ type AuthorizationContext struct {
 
 var currentAuthorizationContext *AuthorizationContext
 
-func NewFromUser(user *ContextUser) *AuthorizationContext {
+func NewFromUser(user *UserContext) *AuthorizationContext {
 	newContext := AuthorizationContext{
 		User: user,
 		ValidationOptions: AuthorizationValidationOptions{
@@ -49,7 +50,7 @@ func NewFromUser(user *ContextUser) *AuthorizationContext {
 }
 
 func New() *AuthorizationContext {
-	user := NewContextUser()
+	user := NewUserContext()
 
 	return NewFromUser(user)
 }
@@ -60,9 +61,12 @@ func (a *AuthorizationContext) WithOptions(options AuthorizationOptions) *Author
 }
 
 func (a *AuthorizationContext) WithDefaultOptions() *AuthorizationContext {
+	logger := log.Get()
 	config := configuration.Get()
 	issuer := config.GetString("JWT_ISSUER")
 	tokenDuration := config.GetInt("JWT_TOKEN_DURATION")
+	refreshTokenDuration := config.GetInt("JWT_REFRESH_TOKEN_DURATION")
+	verifyEmailtokenDuration := config.GetInt("JWT_VERIFY_EMAIL_TOKEN_DURATION")
 	scope := config.GetString("JWT_SCOPE")
 	authorizationType := config.GetString("JWT_AUTH_TYPE")
 	keySize := config.GetString("JWT_KEY_SIZE")
@@ -72,6 +76,8 @@ func (a *AuthorizationContext) WithDefaultOptions() *AuthorizationContext {
 	}
 	privateKey := config.GetString("JWT" + keyId + "_PRIVATE_KEY")
 
+	// Setting the default startup issuer to the localhost if it was not set
+	// TODO: Improve the issuer calculations with overrides
 	if issuer == "" {
 		apiPort := config.GetString("HTTP_PORT")
 		apiPrefix := config.GetString("API_PREFIX")
@@ -90,27 +96,47 @@ func (a *AuthorizationContext) WithDefaultOptions() *AuthorizationContext {
 	}
 	a.Issuer = issuer
 
-	if tokenDuration == 0 {
+	// Setting the default duration of the token to an hour
+	if tokenDuration <= 0 {
 		tokenDuration = 60
 	}
 
+	// Setting the default duration of the refresh token to 3 months
+	if refreshTokenDuration <= 0 {
+		refreshTokenDuration = 131400
+	}
+
+	// Setting the default duration of the verify email token to 1 day
+	if verifyEmailtokenDuration <= 0 {
+		verifyEmailtokenDuration = 1440
+	}
+
+	// Setting the default scope of the tokens
 	if scope == "" {
 		scope = "authorization"
 	}
 	a.Scope = scope
 
+	// Setting the default authorization signature type to HMAC
 	if authorizationType == "" {
 		authorizationType = "hmac"
 	}
 
+	// Setting the default durations into the Options object
 	a.Options = AuthorizationOptions{
-		TokenDuration: tokenDuration,
+		TokenDuration:            tokenDuration,
+		RefreshTokenDuration:     refreshTokenDuration,
+		VerifyEmailTokenDuration: verifyEmailtokenDuration,
 	}
 
+	// If not private key was found then we need to generate a panic as we cannot proceed
 	if privateKey == "" {
-		panic(errors.New("private key not found"))
+		err := errors.New("private key not found")
+		logger.Error("There was an error initializing authorization context, %v", err.Error())
+		panic(err.Error())
 	}
 
+	// Getting the keyId from the private one
 	keyId = strings.TrimLeft(keyId, "_")
 
 	switch strings.ToLower(authorizationType) {

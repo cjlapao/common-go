@@ -9,6 +9,7 @@ import (
 	"github.com/cjlapao/common-go/execution_context"
 	"github.com/cjlapao/common-go/helper/http_helper"
 	"github.com/cjlapao/common-go/identity/models"
+	"github.com/cjlapao/common-go/identity/oauthflow"
 	"github.com/cjlapao/common-go/service_provider"
 	"github.com/gorilla/mux"
 )
@@ -47,7 +48,7 @@ func (c *AuthorizationControllers) Token() controllers.Controller {
 
 		switch loginRequest.GrantType {
 		case "password":
-			response, errorResponse := PasswordGrantFlow{}.Authenticate(c, &loginRequest, ctx.Authorization.TenantId)
+			response, errorResponse := oauthflow.PasswordGrantFlow{}.Authenticate(&loginRequest, ctx.Authorization.TenantId)
 			if errorResponse != nil {
 				switch errorResponse.Error {
 				case models.OAuthInvalidClientError:
@@ -61,19 +62,41 @@ func (c *AuthorizationControllers) Token() controllers.Controller {
 			json.NewEncoder(w).Encode(*response)
 			return
 		case "refresh_token":
-			response, errorResponse := PasswordGrantFlow{}.RefreshToken(c, &loginRequest, ctx.Authorization.TenantId)
-			if errorResponse != nil {
-				switch errorResponse.Error {
-				case models.OAuthInvalidClientError:
-					w.WriteHeader(http.StatusUnauthorized)
-				default:
-					w.WriteHeader(http.StatusBadRequest)
+			if loginRequest.Username != "" {
+				response, errorResponse := oauthflow.PasswordGrantFlow{}.RefreshToken(&loginRequest, ctx.Authorization.TenantId)
+				if errorResponse != nil {
+					switch errorResponse.Error {
+					case models.OAuthInvalidClientError:
+						w.WriteHeader(http.StatusUnauthorized)
+					default:
+						w.WriteHeader(http.StatusBadRequest)
+					}
+					json.NewEncoder(w).Encode(*errorResponse)
+					return
 				}
-				json.NewEncoder(w).Encode(*errorResponse)
+				json.NewEncoder(w).Encode(*response)
 				return
+			} else if loginRequest.ClientID != "" {
+				// TODO: Implement client id validations
+				w.WriteHeader(http.StatusBadRequest)
+				errorResponse = models.OAuthErrorResponse{
+					Error:            models.OAuthUnsupportedGrantType,
+					ErrorDescription: fmt.Sprintf("Grant %v is not currently supported by the system", loginRequest.GrantType),
+				}
+				logger.Error(errorResponse.ErrorDescription)
+				json.NewEncoder(w).Encode(errorResponse)
+				return
+			} else {
+				w.WriteHeader(http.StatusBadRequest)
+				errorResponse = models.OAuthErrorResponse{
+					Error:            models.OAuthUnsupportedGrantType,
+					ErrorDescription: fmt.Sprintf("Grant %v is not currently supported by the system", loginRequest.GrantType),
+				}
+				logger.Error(errorResponse.ErrorDescription)
+				json.NewEncoder(w).Encode(errorResponse)
+				return
+
 			}
-			json.NewEncoder(w).Encode(*response)
-			return
 		default:
 			w.WriteHeader(http.StatusBadRequest)
 			errorResponse = models.OAuthErrorResponse{

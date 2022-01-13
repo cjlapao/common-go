@@ -5,12 +5,14 @@ import (
 )
 
 type AuthorizationOptions struct {
-	TokenDuration int
-	SignatureType encryption.EncryptionKeyType
-	SignatureSize encryption.EncryptionKeySize
-	PrivateKey    string
-	PublicKey     string
-	KeyId         string
+	TokenDuration            int
+	RefreshTokenDuration     int
+	VerifyEmailTokenDuration int
+	SignatureType            encryption.EncryptionKeyType
+	SignatureSize            encryption.EncryptionKeySize
+	PrivateKey               string
+	PublicKey                string
+	KeyId                    string
 }
 
 type AuthorizationValidationOptions struct {

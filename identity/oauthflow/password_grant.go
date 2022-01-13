@@ -1,4 +1,4 @@
-package controllers
+package oauthflow
 
 import (
 	"fmt"
@@ -13,10 +13,10 @@ import (
 
 type PasswordGrantFlow struct{}
 
-func (passwordGrantFlow PasswordGrantFlow) Authenticate(controller *AuthorizationControllers, request *models.OAuthLoginRequest, tenant string) (*models.OAuthLoginResponse, *models.OAuthErrorResponse) {
+func (passwordGrantFlow PasswordGrantFlow) Authenticate(request *models.OAuthLoginRequest, tenant string) (*models.OAuthLoginResponse, *models.OAuthErrorResponse) {
 	var errorResponse models.OAuthErrorResponse
 	ctx := execution_context.Get()
-	user := controller.UserAdapter.GetUserByEmail(request.Username)
+	user := ctx.UserDatabaseAdapter.GetUserByEmail(request.Username)
 
 	if user.ID == "" {
 		if user.Email == "" {
@@ -54,7 +54,7 @@ func (passwordGrantFlow PasswordGrantFlow) Authenticate(controller *Authorizatio
 		return nil, &errorResponse
 	}
 
-	controller.UserAdapter.UpdateUserRefreshToken(user.ID, token.RefreshToken)
+	ctx.UserDatabaseAdapter.UpdateUserRefreshToken(user.ID, token.RefreshToken)
 
 	expiresIn := ctx.Authorization.Options.TokenDuration * 60
 	response := models.OAuthLoginResponse{
@@ -70,11 +70,11 @@ func (passwordGrantFlow PasswordGrantFlow) Authenticate(controller *Authorizatio
 	return &response, nil
 }
 
-func (passwordGrantFlow PasswordGrantFlow) RefreshToken(controller *AuthorizationControllers, request *models.OAuthLoginRequest, tenant string) (*models.OAuthLoginResponse, *models.OAuthErrorResponse) {
+func (passwordGrantFlow PasswordGrantFlow) RefreshToken(request *models.OAuthLoginRequest, tenant string) (*models.OAuthLoginResponse, *models.OAuthErrorResponse) {
 	var errorResponse models.OAuthErrorResponse
 	ctx := execution_context.Get()
 	userEmail := jwt.GetTokenClaim(request.RefreshToken, "sub")
-	user := controller.UserAdapter.GetUserByEmail(userEmail)
+	user := ctx.UserDatabaseAdapter.GetUserByEmail(userEmail)
 
 	if user.ID == "" {
 		if user.DisplayName != "" {
@@ -132,7 +132,7 @@ func (passwordGrantFlow PasswordGrantFlow) RefreshToken(controller *Authorizatio
 	todayPlus30 := time.Now().Add((time.Hour * 24) * 30)
 	if token.ExpiresAt.Before(todayPlus30) {
 		response.RefreshToken = newToken.RefreshToken
-		controller.UserAdapter.UpdateUserRefreshToken(user.ID, newToken.RefreshToken)
+		ctx.UserDatabaseAdapter.UpdateUserRefreshToken(user.ID, newToken.RefreshToken)
 	}
 
 	logger.Success("Token for user %v was generated successfully", user.Username)

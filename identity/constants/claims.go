@@ -1,10 +1,13 @@
 package constants
 
 const (
-	CanUpsert     = "_readwrite"
-	CanView       = "_read"
-	CanRemove     = "_remove"
-	CanUpsertUser = "_readwrite_user"
-	CanViewUser   = "_read_user"
-	CanRemoveUser = "_remove_user"
+	SuperUserClaim        = "_su"
+	CanUpsertClaim        = "_readwrite"
+	CanReadClaim          = "_read"
+	CanWriteClaim         = "_write"
+	CanRemoveClaim        = "_remove"
+	CanUpsertUserClaim    = "_readwrite.user"
+	CanReadUserClaim      = "_read.user"
+	CanReadWriteUserClaim = "_readwrite.user"
+	CanRemoveUserClaim    = "_remove.user"
 )

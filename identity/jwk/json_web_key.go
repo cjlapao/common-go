@@ -67,11 +67,6 @@ func NewKeyWithId(id string, privateKey interface{}) *JsonWebKey {
 		key.X5C = append(key.X5C, encodedPublicKey)
 	}
 
-	// if execution_context.Get().Debug {
-	// 	jsonPrint, _ := json.MarshalIndent(key, "", "  ")
-	// 	logger.Debug(string(jsonPrint))
-	// }
-
 	return &key
 }
 

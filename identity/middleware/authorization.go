@@ -18,6 +18,11 @@ import (
 
 var ctx = execution_context.Get()
 
+// AuthorizationMiddlewareAdapter validates a Authorization Bearer during a rest api call
+// It can take an array of roles and claims to further validate the token in a more granular
+// view, it also can take an OR option in both if the role or claim are coma separated.
+// For example a claim like "_read,_write" will be valid if the user either has a _read claim
+// or a _write claim making them both valid
 func AuthorizationMiddlewareAdapter(roles []string, claims []string) controllers.Adapter {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -27,6 +32,8 @@ func AuthorizationMiddlewareAdapter(roles []string, claims []string) controllers
 			var dbUser *models.User
 			var validateError error
 			var err error
+			var userClaims = make([]string, 0)
+			var userRoles = make([]string, 0)
 
 			// if no tenant is set we will assume it is the global tenant
 			if tenantId == "" {
@@ -45,7 +52,7 @@ func AuthorizationMiddlewareAdapter(roles []string, claims []string) controllers
 			if !valid {
 				authorized = false
 				validateError = errors.New("bearer token not found in request")
-				logger.Error(validateError.Error())
+				logger.Error("Error validating token, %v", validateError.Error())
 			}
 
 			// Validating userToken against the keys
@@ -54,7 +61,7 @@ func AuthorizationMiddlewareAdapter(roles []string, claims []string) controllers
 				if validateError != nil {
 					authorized = false
 					validateError = errors.New("bearer token is not valid, " + err.Error())
-					logger.Error(validateError.Error())
+					logger.Error("Error validating token, %v", validateError.Error())
 				}
 			}
 
@@ -62,7 +69,7 @@ func AuthorizationMiddlewareAdapter(roles []string, claims []string) controllers
 			if userToken == nil || userToken.User == "" {
 				authorized = false
 				validateError = errors.New("bearer token has invalid user")
-				logger.Error(validateError.Error())
+				logger.Error("Error validating token, %v", validateError.Error())
 			}
 
 			// To gain speed we will only get the db user if there is any role or claim to validate
@@ -74,37 +81,43 @@ func AuthorizationMiddlewareAdapter(roles []string, claims []string) controllers
 					if dbUser == nil || dbUser.ID == "" {
 						authorized = false
 						validateError = errors.New("bearer token user was not found in database, potentially revoked, " + userToken.User)
-						logger.Error(validateError.Error())
+						logger.Error("Error validating token, %v", validateError.Error())
 					}
 				}
 
-				// Validating user roles
 				if authorized {
-					err = validateUserRoles(dbUser, roles)
+					userRoles, userClaims = getUserRolesAndClaims(dbUser)
+				}
+
+				// Validating user roles
+				if authorized && len(roles) > 0 && len(userRoles) > 0 {
+					err = validateUserRoles(userRoles, roles)
 					if err != nil {
 						authorized = false
 						validateError = errors.New("bearer token user does not contain one or more roles required by the context, " + err.Error())
-						logger.Error(validateError.Error())
+						logger.Error("Error validating token, %v", validateError.Error())
 					}
 				}
 
 				// Validating user claims
-				if authorized {
-					err = validateUserClaims(dbUser, claims)
+				if authorized && len(claims) > 0 && len(userClaims) > 0 {
+					err = validateUserClaims(userClaims, claims)
 					if err != nil {
 						authorized = false
 						validateError = errors.New("bearer token user does not contain one or more claims required by the context, " + err.Error())
-						logger.Error(validateError.Error())
+						logger.Error("Error validating token, %v", validateError.Error())
 					}
 				}
 			}
 
 			if authorized && userToken != nil && userToken.ID != "" {
-				user := authorization_context.NewContextUser()
+				user := authorization_context.NewUserContext()
 				user.ID = userToken.ID
 				user.Email = userToken.User
 				user.Audiences = userToken.Audiences
 				user.Issuer = userToken.Issuer
+				user.ValidatedClaims = claims
+				user.Roles = userToken.Roles
 
 				ctx.Authorization = authorization_context.NewFromUser(user)
 				ctx.Authorization.TenantId = userToken.TenantId
@@ -118,9 +131,9 @@ func AuthorizationMiddlewareAdapter(roles []string, claims []string) controllers
 				w.WriteHeader(http.StatusUnauthorized)
 				json.NewEncoder(w).Encode(response)
 				if userToken != nil && userToken.User != "" {
-					logger.Error("User " + userToken.User + " failed to authorize.")
+					logger.Error("User "+userToken.User+" failed to authorize, %v", response.ErrorDescription)
 				} else {
-					logger.Error("Request failed to authorize. No bearer token found.")
+					logger.Error("Request failed to authorize, %v", response.ErrorDescription)
 
 				}
 
@@ -134,6 +147,8 @@ func AuthorizationMiddlewareAdapter(roles []string, claims []string) controllers
 	}
 }
 
+// EndAuthorizationMiddlewareAdapter This cleans the context of any previous users
+// token left in memory and rereading all of the default options for the next request
 func EndAuthorizationMiddlewareAdapter() controllers.Adapter {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -150,52 +165,64 @@ func EndAuthorizationMiddlewareAdapter() controllers.Adapter {
 	}
 }
 
-func validateUserRoles(user *models.User, requiredRoles []string) error {
-	var validateError error
+func getUserRolesAndClaims(user *models.User) (roles []string, claims []string) {
+	roles = make([]string, 0)
+	claims = make([]string, 0)
+
 	if user == nil || user.ID == "" {
-		validateError = errors.New("user is invalid when processing roles")
-		logger.Error(validateError.Error())
-		return validateError
+		return roles, claims
 	}
+
+	if !user.IsValid() {
+		return roles, claims
+	}
+
+	for _, role := range user.Roles {
+		roles = append(roles, role.ID)
+	}
+
+	for _, claim := range user.Claims {
+		claims = append(claims, claim.ID)
+	}
+
+	return roles, claims
+}
+
+func validateUserRoles(roles []string, requiredRoles []string) error {
+	var validateError error
 
 	// Getting user roles and claims
 	validatedRoles := make(map[string]bool)
 
-	if !user.IsValid() {
-		validateError = errors.New("user is invalid when processing roles")
-		logger.Error(validateError.Error())
-		return validateError
-	} else {
-		if len(requiredRoles) > 0 {
-			if user.Roles == nil || len(user.Roles) == 0 {
-				validateError = errors.New("user does not contain any roles")
-				logger.Error(validateError.Error())
-				return validateError
-			} else {
-				for _, requiredRole := range requiredRoles {
-					foundRole := false
-					for _, role := range user.Roles {
-						requiredRoleArr := strings.Split(requiredRole, ",")
-						if len(requiredRoleArr) == 1 {
-							if strings.EqualFold(requiredRole, role.ID) {
+	if len(requiredRoles) > 0 {
+		if len(roles) == 0 {
+			validateError = errors.New("user does not contain any roles")
+			logger.Error(validateError.Error())
+			return validateError
+		} else {
+			for _, requiredRole := range requiredRoles {
+				foundRole := false
+				for _, role := range roles {
+					requiredRoleArr := strings.Split(requiredRole, ",")
+					if len(requiredRoleArr) == 1 {
+						if strings.EqualFold(requiredRole, role) {
+							foundRole = true
+							break
+						}
+					} else if len(requiredRoleArr) > 1 {
+						for _, splitRequiredRole := range requiredRoleArr {
+							if strings.EqualFold(splitRequiredRole, role) {
 								foundRole = true
 								break
 							}
-						} else if len(requiredRoleArr) > 1 {
-							for _, splitRequiredRole := range requiredRoleArr {
-								if strings.EqualFold(splitRequiredRole, role.ID) {
-									foundRole = true
-									break
-								}
-							}
-							if foundRole {
-								break
-							}
+						}
+						if foundRole {
+							break
 						}
 					}
-
-					validatedRoles[requiredRole] = foundRole
 				}
+
+				validatedRoles[requiredRole] = foundRole
 			}
 		}
 	}
@@ -211,54 +238,44 @@ func validateUserRoles(user *models.User, requiredRoles []string) error {
 	return nil
 }
 
-func validateUserClaims(user *models.User, requiredClaims []string) error {
+func validateUserClaims(claims []string, requiredClaims []string) error {
 	var validateError error
-	if user == nil || user.ID == "" {
-		validateError = errors.New("user is invalid when processing claims")
-		logger.Error(validateError.Error())
-		return validateError
-	}
 
 	// Getting user claims and claims
 	validatedClaims := make(map[string]bool)
 
-	if !user.IsValid() {
-		validateError = errors.New("user is invalid when processing claims")
-		logger.Error(validateError.Error())
-		return validateError
-	} else {
-		if len(requiredClaims) > 0 {
-			if user.Claims == nil || len(user.Claims) == 0 {
-				validateError = errors.New("user does not contain any claims")
-				logger.Error(validateError.Error())
-				return validateError
-			} else {
-				for _, requiredClaim := range requiredClaims {
-					foundClaim := false
-					for _, claim := range user.Claims {
-						requiredClaimArr := strings.Split(requiredClaim, ",")
-						if len(requiredClaimArr) == 1 {
-							if strings.EqualFold(requiredClaim, claim.ID) {
+	if len(requiredClaims) > 0 {
+		if len(claims) == 0 {
+			validateError = errors.New("user does not contain any claims")
+			logger.Error(validateError.Error())
+			return validateError
+		} else {
+			for _, requiredClaim := range requiredClaims {
+				foundClaim := false
+				for _, claim := range claims {
+					requiredClaimArr := strings.Split(requiredClaim, ",")
+					if len(requiredClaimArr) == 1 {
+						if strings.EqualFold(requiredClaim, claim) {
+							foundClaim = true
+							break
+						}
+					} else if len(requiredClaimArr) > 1 {
+						for _, splitRequiredClaim := range requiredClaimArr {
+							if strings.EqualFold(splitRequiredClaim, claim) {
 								foundClaim = true
 								break
 							}
-						} else if len(requiredClaimArr) > 1 {
-							for _, splitRequiredClaim := range requiredClaimArr {
-								if strings.EqualFold(splitRequiredClaim, claim.ID) {
-									foundClaim = true
-									break
-								}
-							}
-							if foundClaim {
-								break
-							}
+						}
+						if foundClaim {
+							break
 						}
 					}
-
-					validatedClaims[requiredClaim] = foundClaim
 				}
+
+				validatedClaims[requiredClaim] = foundClaim
 			}
 		}
+
 	}
 
 	for claimName, found := range validatedClaims {
