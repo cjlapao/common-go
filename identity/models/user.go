@@ -3,6 +3,7 @@ package models
 import (
 	"github.com/cjlapao/common-go/constants"
 	"github.com/cjlapao/common-go/cryptorand"
+	"github.com/cjlapao/common-go/validators"
 )
 
 // User entity
@@ -10,7 +11,7 @@ type User struct {
 	ID               string      `json:"id" bson:"_id"`
 	Email            string      `json:"email" bson:"email"`
 	EmailVerified    bool        `json:"emailVerified" bson:"emailVerified"`
-	Username         string      `json:"userName" bson:"userName"`
+	Username         string      `json:"username" bson:"username"`
 	FirstName        string      `json:"firstName" bson:"firstName"`
 	LastName         string      `json:"lastName" bson:"lastName"`
 	DisplayName      string      `json:"displayName" bson:"displayName"`
@@ -44,6 +45,10 @@ func (u User) IsValid() bool {
 		return false
 	}
 	if u.Email == "" {
+		return false
+	}
+	isEmailValid := validators.ValidateEmailAddress(u.Email)
+	if !isEmailValid {
 		return false
 	}
 	if u.Password == "" {

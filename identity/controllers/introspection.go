@@ -6,49 +6,32 @@ import (
 	"net/http"
 
 	"github.com/cjlapao/common-go/controllers"
-	"github.com/cjlapao/common-go/execution_context"
 	"github.com/cjlapao/common-go/identity/jwt"
 	"github.com/cjlapao/common-go/identity/models"
-	"github.com/gorilla/mux"
 )
 
-// Introspection Validates a token for a user
+// Introspection Validates a token in the context returning an openid oauth introspect response
 func (c *AuthorizationControllers) Introspection() controllers.Controller {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := execution_context.Get()
-		vars := mux.Vars(r)
-		tenantId := vars["tenantId"]
-
-		// if no tenant is set we will assume it is the global tenant
-		if tenantId == "" {
-			tenantId = "global"
-		}
-
-		ctx.Authorization.TenantId = tenantId
-
 		token := r.FormValue("token")
 
 		if token == "" {
-			response := models.OAuthErrorResponse{
-				Error:            models.OAuthInvalidRequestError,
-				ErrorDescription: "The JWT token was not found or the header was malformed, please check your authorization header",
-			}
-
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(response)
-			logger.Error("There was an error validating token")
+			ErrEmptyToken.Log()
+			json.NewEncoder(w).Encode(ErrEmptyToken)
 			return
 		}
 
-		userToken, err := jwt.ValidateUserToken(token, ctx.Authorization.Scope, ctx.Authorization.Audiences...)
+		userToken, err := jwt.ValidateUserToken(token, c.Context.Authorization.Scope, c.Context.Authorization.Audiences...)
 
 		if err != nil {
 			response := models.OAuthIntrospectResponse{
 				Active: false,
 			}
 
+			ErrInvalidToken.Log()
+			c.Logger.Error("Token for user %v is not valid, %v", userToken.DisplayName, err.Error())
 			json.NewEncoder(w).Encode(response)
-			logger.Error("Token for user %v is not valid, %v", userToken.DisplayName, err.Error())
 			return
 		}
 
@@ -62,7 +45,7 @@ func (c *AuthorizationControllers) Introspection() controllers.Controller {
 			Issuer:    userToken.Issuer,
 		}
 
-		logger.Success("Token for user %v was validated successfully", userToken.DisplayName)
+		c.Logger.Success("Token for user %v was validated successfully", userToken.DisplayName)
 		json.NewEncoder(w).Encode(response)
 	}
 }

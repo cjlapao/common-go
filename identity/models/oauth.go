@@ -3,7 +3,9 @@ package models
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 
+	"github.com/cjlapao/common-go/log"
 	"github.com/cjlapao/common-go/security/encryption"
 )
 
@@ -143,6 +145,28 @@ type OAuthErrorResponse struct {
 	ErrorUri         string         `json:"error_uri,omitempty"`
 }
 
+func NewOAuthErrorResponse(err OAuthErrorType, description string) OAuthErrorResponse {
+	errorResponse := OAuthErrorResponse{
+		Error:            err,
+		ErrorDescription: description,
+	}
+	return errorResponse
+
+}
+
+func (err OAuthErrorResponse) String() string {
+	return fmt.Sprintf("An error occurred, %v: %v", err.Error.String(), err.ErrorDescription)
+}
+
+func (err OAuthErrorResponse) Log(extraLogs ...string) {
+	logger := log.Get()
+	if len(extraLogs) == 0 {
+		logger.Error(err.String())
+	} else {
+		logger.Error("%v %v", err.String(), extraLogs[0])
+	}
+}
+
 type OAuthConfigurationResponse struct {
 	Issuer                             string   `json:"issuer"`
 	JwksURI                            string   `json:"jwks_uri"`
@@ -196,4 +220,9 @@ type OAuthRegisterRequest struct {
 	LastName  string   `json:"lastName"`
 	Roles     []string `json:"roles"`
 	Claims    []string `json:"claims"`
+}
+
+type OAuthRevokeRequest struct {
+	ClientID  string `json:"client_id"`
+	GrantType string `json:"grant_type"`
 }

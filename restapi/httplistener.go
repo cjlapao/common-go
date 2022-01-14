@@ -110,9 +110,6 @@ func (l *HttpListener) AddDefaultHomepage() *HttpListener {
 }
 
 func (l *HttpListener) WithDefaultAuthentication() *HttpListener {
-	if l.Options.UseAuthBackend {
-		l.Logger.Info("Found MongoDB connection string, enabling MongoDb auth backend...")
-	}
 	defaultAuthControllers := authControllers.NewDefaultAuthorizationControllers()
 
 	l.AddController(defaultAuthControllers.Token(), "/auth/token", "POST")
@@ -134,18 +131,16 @@ func (l *HttpListener) WithDefaultAuthentication() *HttpListener {
 func (l *HttpListener) WithAuthentication(context interfaces.UserDatabaseAdapter) *HttpListener {
 	ctx := execution_context.Get()
 	if ctx.Authorization != nil {
-		ctx.UserDatabaseAdapter = context
-		if l.Options.UseAuthBackend {
-			l.Logger.Info("Found MongoDB connection string, enabling MongoDb auth backend...")
-		}
 		defaultAuthControllers := authControllers.NewAuthorizationControllers(context)
 
 		l.AddController(defaultAuthControllers.Token(), "/auth/token", "POST")
 		l.AddController(defaultAuthControllers.Token(), "/auth/{tenantId}/token", "POST")
 		l.AddController(defaultAuthControllers.Introspection(), "/auth/token/introspect", "POST")
 		l.AddController(defaultAuthControllers.Introspection(), "/auth/{tenantId}/token/introspect", "POST")
-		l.AddAuthorizedControllerWithRoles(defaultAuthControllers.Register(), "/auth/register", []string{"_admin"}, "POST")
-		l.AddAuthorizedControllerWithRoles(defaultAuthControllers.Register(), "/auth/{tenantId}/register", []string{"_admin"}, "POST")
+		l.AddAuthorizedControllerWithRoles(defaultAuthControllers.Register(), "/auth/register", []string{"_su,_admin"}, "POST")
+		l.AddAuthorizedControllerWithRoles(defaultAuthControllers.Register(), "/auth/{tenantId}/register", []string{"_su,_admin"}, "POST")
+		l.AddAuthorizedControllerWithRoles(defaultAuthControllers.Revoke(), "/auth/revoke", []string{"_su,_admin"}, "POST")
+		l.AddAuthorizedControllerWithRoles(defaultAuthControllers.Revoke(), "/auth/{tenantId}/revoke", []string{"_su,_admin"}, "POST")
 
 		l.AddController(defaultAuthControllers.Configuration(), "/auth/.well-known/openid-configuration", "GET")
 		l.AddController(defaultAuthControllers.Configuration(), "/auth/{tenantId}/.well-known/openid-configuration", "GET")

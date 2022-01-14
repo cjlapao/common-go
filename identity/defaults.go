@@ -6,13 +6,10 @@ import (
 	"github.com/cjlapao/common-go/configuration"
 	"github.com/cjlapao/common-go/database/mongodb"
 	"github.com/cjlapao/common-go/helper/reflect_helper"
-	identity_constants "github.com/cjlapao/common-go/identity/constants"
+	"github.com/cjlapao/common-go/identity/constants"
 	"github.com/cjlapao/common-go/identity/models"
-	"github.com/cjlapao/common-go/log"
 	"github.com/cjlapao/common-go/security"
 )
-
-var logger = log.Get()
 
 func GetDefaultUsers() []models.User {
 	config := configuration.Get()
@@ -26,10 +23,10 @@ func GetDefaultUsers() []models.User {
 	if reflect_helper.IsNilOrEmpty(adminUsername) {
 		adminUser = models.User{
 			ID:        "592D8E5C-6F5D-40A0-9348-80131B083715",
-			Email:     "admin@localhost",
+			Email:     "admin@localhost.com",
 			FirstName: "Administrator",
 			LastName:  "User",
-			Username:  "admin",
+			Username:  "admin@localhost.com",
 			Password:  "a075d17f3d453073853f813838c15b8023b8c487038436354fe599c3942e1f95",
 		}
 	} else {
@@ -48,8 +45,8 @@ func GetDefaultUsers() []models.User {
 		adminUser.Password = security.SHA256Encode(adminPassword)
 	}
 
-	adminUser.Roles = append(adminUser.Roles, models.AdminRole, models.RegularUserRole)
-	adminUser.Claims = append(adminUser.Claims, models.ReadClaim, models.ReadWriteClaim, models.RemoveClaim)
+	adminUser.Roles = append(adminUser.Roles, constants.AdminRole, constants.RegularUserRole)
+	adminUser.Claims = append(adminUser.Claims, constants.ReadClaim, constants.ReadWriteClaim, constants.RemoveClaim)
 
 	demoUsername := config.GetString("DEMO_USERNAME")
 	demoPassword := config.GetString("DEMO_PASSWORD")
@@ -57,10 +54,10 @@ func GetDefaultUsers() []models.User {
 	if reflect_helper.IsNilOrEmpty(demoUsername) {
 		demoUser = models.User{
 			ID:        "C54C2A9B-CA73-4188-875A-F26026A38B58",
-			Email:     "demo@localhost",
+			Email:     "demo@localhost.com",
 			FirstName: "Demo",
 			LastName:  "User",
-			Username:  "demo",
+			Username:  "demo@localhost.com",
 			Password:  "2a97516c354b68848cdbd8f54a226a0a55b21ed138e207ad6c5cbb9c00aa5aea",
 		}
 	} else {
@@ -79,8 +76,8 @@ func GetDefaultUsers() []models.User {
 		demoUser.Password = security.SHA256Encode(demoPassword)
 	}
 
-	demoUser.Roles = append(demoUser.Roles, models.RegularUserRole)
-	demoUser.Claims = append(demoUser.Claims, models.ReadClaim)
+	demoUser.Roles = append(demoUser.Roles, constants.RegularUserRole)
+	demoUser.Claims = append(demoUser.Claims, constants.ReadClaim)
 
 	users = append(users, adminUser)
 	users = append(users, demoUser)
@@ -93,7 +90,7 @@ func Seed(factory *mongodb.MongoFactory, databaseName string) {
 }
 
 func SeedUsers(factory *mongodb.MongoFactory, databaseName string) {
-	repo := mongodb.NewRepository(factory, databaseName, identity_constants.IdentityUsersCollection)
+	repo := mongodb.NewRepository(factory, databaseName, constants.IdentityUsersCollection)
 	users := GetDefaultUsers()
 	for _, user := range users {
 		model := mongodb.NewUpdateOneBuilder().FilterBy("email", user.Email).Encode(user, "refreshToken").Build()

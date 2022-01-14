@@ -9,14 +9,15 @@ import (
 	"github.com/cjlapao/common-go/controllers"
 	"github.com/cjlapao/common-go/execution_context"
 	"github.com/cjlapao/common-go/helper/http_helper"
+	"github.com/cjlapao/common-go/identity"
 	"github.com/cjlapao/common-go/identity/authorization_context"
+	"github.com/cjlapao/common-go/identity/constants"
 	"github.com/cjlapao/common-go/identity/jwt"
 	"github.com/cjlapao/common-go/identity/models"
 	"github.com/cjlapao/common-go/log"
+	"github.com/cjlapao/common-go/service_provider"
 	"github.com/gorilla/mux"
 )
-
-var ctx = execution_context.Get()
 
 // AuthorizationMiddlewareAdapter validates a Authorization Bearer during a rest api call
 // It can take an array of roles and claims to further validate the token in a more granular
@@ -26,6 +27,13 @@ var ctx = execution_context.Get()
 func AuthorizationMiddlewareAdapter(roles []string, claims []string) controllers.Adapter {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := execution_context.Get()
+			if ctx.UserDatabaseAdapter == nil {
+				w.WriteHeader(http.StatusUnauthorized)
+				identity.ErrNoContext.Log()
+				json.NewEncoder(w).Encode(identity.ErrNoContext)
+				return
+			}
 			vars := mux.Vars(r)
 			tenantId := vars["tenantId"]
 			var userToken *models.UserToken
@@ -34,6 +42,7 @@ func AuthorizationMiddlewareAdapter(roles []string, claims []string) controllers
 			var err error
 			var userClaims = make([]string, 0)
 			var userRoles = make([]string, 0)
+			var isSuperUser = false
 
 			// if no tenant is set we will assume it is the global tenant
 			if tenantId == "" {
@@ -72,9 +81,21 @@ func AuthorizationMiddlewareAdapter(roles []string, claims []string) controllers
 				logger.Error("Error validating token, %v", validateError.Error())
 			}
 
+			// Checking if the user is a supper user, if so we will not check any roles or claims as he will have access to it
+			if len(roles) > 0 {
+				for _, role := range roles {
+					if role == constants.SuperUser {
+						logger.Info("Super User %v was found, authorizing", userToken.User)
+						authorized = true
+						isSuperUser = true
+						break
+					}
+				}
+			}
+
 			// To gain speed we will only get the db user if there is any role or claim to validate
 			// otherwise we don't need anything else to validate it
-			if len(roles) > 0 || len(claims) > 0 {
+			if (len(roles) > 0 || len(claims) > 0) && !isSuperUser {
 				// Getting the user from the database to validate roles and claims
 				if authorized {
 					dbUser = ctx.UserDatabaseAdapter.GetUserByEmail(userToken.User)
@@ -119,8 +140,11 @@ func AuthorizationMiddlewareAdapter(roles []string, claims []string) controllers
 				user.ValidatedClaims = claims
 				user.Roles = userToken.Roles
 
+				baseUrl := service_provider.Get().GetBaseUrl(r)
 				ctx.Authorization = authorization_context.NewFromUser(user)
+				ctx.Authorization.Issuer = baseUrl + "/auth/" + tenantId
 				ctx.Authorization.TenantId = userToken.TenantId
+
 				logger.Info("User " + user.Email + " was authorized successfully.")
 			} else {
 				response := models.OAuthErrorResponse{

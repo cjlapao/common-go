@@ -13,10 +13,10 @@ import (
 
 type PasswordGrantFlow struct{}
 
-func (passwordGrantFlow PasswordGrantFlow) Authenticate(request *models.OAuthLoginRequest, tenant string) (*models.OAuthLoginResponse, *models.OAuthErrorResponse) {
+func (passwordGrantFlow PasswordGrantFlow) Authenticate(request *models.OAuthLoginRequest) (*models.OAuthLoginResponse, *models.OAuthErrorResponse) {
 	var errorResponse models.OAuthErrorResponse
 	ctx := execution_context.Get()
-	user := ctx.UserDatabaseAdapter.GetUserByEmail(request.Username)
+	user := ctx.UserDatabaseAdapter.GetUserByUsername(request.Username)
 
 	if user.ID == "" {
 		if user.Email == "" {
@@ -70,7 +70,7 @@ func (passwordGrantFlow PasswordGrantFlow) Authenticate(request *models.OAuthLog
 	return &response, nil
 }
 
-func (passwordGrantFlow PasswordGrantFlow) RefreshToken(request *models.OAuthLoginRequest, tenant string) (*models.OAuthLoginResponse, *models.OAuthErrorResponse) {
+func (passwordGrantFlow PasswordGrantFlow) RefreshToken(request *models.OAuthLoginRequest) (*models.OAuthLoginResponse, *models.OAuthErrorResponse) {
 	var errorResponse models.OAuthErrorResponse
 	ctx := execution_context.Get()
 	userEmail := jwt.GetTokenClaim(request.RefreshToken, "sub")

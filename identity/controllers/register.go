@@ -2,49 +2,21 @@ package controllers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/cjlapao/common-go/controllers"
-	"github.com/cjlapao/common-go/execution_context"
 	"github.com/cjlapao/common-go/helper/http_helper"
+	"github.com/cjlapao/common-go/identity/constants"
 	"github.com/cjlapao/common-go/identity/models"
 	"github.com/cjlapao/common-go/security"
-	"github.com/cjlapao/common-go/service_provider"
-	"github.com/gorilla/mux"
 )
 
 // Register Create an user in the tenant
 func (c *AuthorizationControllers) Register() controllers.Controller {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var errorResponse models.OAuthErrorResponse
 		var registerRequest models.OAuthRegisterRequest
 
-		ctx := execution_context.Get()
-		if ctx.UserDatabaseAdapter == nil {
-			w.WriteHeader(http.StatusUnauthorized)
-			errorResponse = models.OAuthErrorResponse{
-				Error:            models.OAuthInvalidRequestError,
-				ErrorDescription: "Context is null and cannot be validated",
-			}
-			logger.Error(errorResponse.ErrorDescription)
-			json.NewEncoder(w).Encode(errorResponse)
-			return
-		}
-
-		vars := mux.Vars(r)
-		tenantId := vars["tenantId"]
-
-		// if no tenant is set we will assume it is the global tenant
-		if tenantId == "" {
-			tenantId = "global"
-		}
-
 		http_helper.MapRequestBody(r, &registerRequest)
-
-		baseUrl := service_provider.Get().GetBaseUrl(r)
-		ctx.Authorization.TenantId = tenantId
-		ctx.Authorization.Issuer = baseUrl + "/auth/" + tenantId
 
 		user := models.NewUser()
 		user.Username = registerRequest.Username
@@ -58,44 +30,36 @@ func (c *AuthorizationControllers) Register() controllers.Controller {
 
 		if registerRequest.Claims != nil && len(registerRequest.Claims) > 0 {
 			for _, claim := range registerRequest.Claims {
-				user.Claims = append(user.Claims, models.NewUserClaim(claim))
+				user.Claims = append(user.Claims, models.NewUserClaim(claim, claim))
 			}
 		} else {
-			user.Claims = append(user.Claims, models.ReadClaim)
+			user.Claims = append(user.Claims, constants.ReadClaim)
 		}
 
 		if registerRequest.Roles != nil && len(registerRequest.Roles) > 0 {
 			for _, role := range registerRequest.Roles {
-				user.Roles = append(user.Roles, models.NewUserRole(role))
+				user.Roles = append(user.Roles, models.NewUserRole(role, role))
 			}
 		} else {
-			user.Roles = append(user.Roles, models.RegularUserRole)
+			user.Roles = append(user.Roles, constants.RegularUserRole)
 		}
 
 		if !user.IsValid() {
 			w.WriteHeader(http.StatusUnauthorized)
-			errorResponse = models.OAuthErrorResponse{
-				Error:            models.OAuthInvalidClientError,
-				ErrorDescription: "User is not valid",
-			}
-			logger.Error(errorResponse.ErrorDescription)
-			json.NewEncoder(w).Encode(errorResponse)
+			ErrInvalidUser.Log()
+			json.NewEncoder(w).Encode(ErrInvalidUser)
 			return
 		}
 
-		dbUser := ctx.UserDatabaseAdapter.GetUserByEmail(user.Email)
+		dbUser := c.Context.UserDatabaseAdapter.GetUserByEmail(user.Email)
 		if dbUser.Email != "" {
 			w.WriteHeader(http.StatusBadRequest)
-			errorResponse = models.OAuthErrorResponse{
-				Error:            models.OAuthInvalidRequestError,
-				ErrorDescription: fmt.Sprintf("User %v already exists on tenant %v", user.Email, tenantId),
-			}
-			logger.Error(errorResponse.ErrorDescription)
-			json.NewEncoder(w).Encode(errorResponse)
+			ErrUserAlreadyExists.Log()
+			json.NewEncoder(w).Encode(ErrUserAlreadyExists)
 			return
 		}
 
-		ctx.UserDatabaseAdapter.UpsertUser(*user)
+		c.Context.UserDatabaseAdapter.UpsertUser(*user)
 
 		json.NewEncoder(w).Encode(user)
 	}

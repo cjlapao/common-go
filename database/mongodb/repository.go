@@ -18,6 +18,7 @@ type Repository interface {
 	InsertMany(elements []interface{}) *mongo.InsertManyResult
 	UpsertOne(model mongo.UpdateOneModel) *mongo.UpdateResult
 	UpsertMany(filter interface{}, elements []interface{}) *mongo.UpdateResult
+	DeleteOne(model mongo.DeleteOneModel) *mongo.DeleteResult
 }
 
 type DefaultRepository struct {
@@ -173,4 +174,22 @@ func (r *DefaultRepository) UpsertMany(filter interface{}, elements []interface{
 	}
 
 	return updateOneResult
+}
+
+func (r *DefaultRepository) DeleteOne(model mongo.DeleteOneModel) *mongo.DeleteResult {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	deleteOptions := options.Delete()
+	deleteOptions.Collation = model.Collation
+	deleteOptions.Hint = model.Hint
+
+	deleteOneResult, err := r.Collection.DeleteOne(ctx, model.Filter, deleteOptions)
+
+	if err != nil {
+		logger.LogError(err)
+		return nil
+	}
+
+	return deleteOneResult
 }

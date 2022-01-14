@@ -54,6 +54,24 @@ func (c *MemoryUserContextAdapter) GetUserByEmail(email string) *models.User {
 	return nil
 }
 
+func (c *MemoryUserContextAdapter) GetUserByUsername(username string) *models.User {
+	users := identity.GetDefaultUsers()
+	var user models.User
+	found := false
+	for _, usr := range users {
+		if strings.EqualFold(username, usr.Username) {
+			user = usr
+			found = true
+			break
+		}
+	}
+
+	if found {
+		return &user
+	}
+	return nil
+}
+
 func (c *MemoryUserContextAdapter) UpsertUser(user models.User) {
 	c.Users = append(c.Users, user)
 }
@@ -72,11 +90,13 @@ func (c *MemoryUserContextAdapter) GetUserRefreshToken(id string) *string {
 	return &token
 }
 
-func (c *MemoryUserContextAdapter) UpdateUserRefreshToken(id string, token string) {
+func (c *MemoryUserContextAdapter) UpdateUserRefreshToken(id string, token string) bool {
 	user := c.GetUserById(id)
 	if user != nil {
 		user.RefreshToken = token
+		return true
 	}
+	return false
 }
 
 func (c *MemoryUserContextAdapter) GetUserEmailVerifyToken(id string) *string {
@@ -89,9 +109,12 @@ func (c *MemoryUserContextAdapter) GetUserEmailVerifyToken(id string) *string {
 	return &token
 }
 
-func (c *MemoryUserContextAdapter) UpdateUserEmailVerifyToken(id string, token string) {
+func (c *MemoryUserContextAdapter) UpdateUserEmailVerifyToken(id string, token string) bool {
 	user := c.GetUserById(id)
 	if user != nil {
 		user.EmailVerifyToken = token
+		return true
 	}
+
+	return false
 }
