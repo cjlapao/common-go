@@ -37,6 +37,8 @@ func NewRepository(factory *MongoFactory, database string, collection string) Re
 	defaultRepo.Client = factory.Client
 	defaultRepo.Database = factory.GetDatabase()
 	defaultRepo.Collection = factory.GetCollection(collection)
+	ctx := context.Background()
+	defaultRepo.Collection.Find(ctx, bson.D{{}})
 
 	return &defaultRepo
 }
