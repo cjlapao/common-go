@@ -1,4 +1,4 @@
-package validatefield
+package validators
 
 import (
 	"reflect"

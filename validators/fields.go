@@ -1,10 +1,4 @@
-/* Apache v2 license
-*  Copyright (C) <2019> Intel Corporation
-*
-*  SPDX-License-Identifier: Apache-2.0
- */
-
-package validatefield
+package validators
 
 type validField struct {
 	characters map[string]bool
@@ -14,7 +8,7 @@ func New(characters string) *validField {
 
 	var obj = validField{make(map[string]bool, len(characters))}
 
-	// build map
+	// build map from runes
 	for _, val := range characters {
 		obj.characters[string(val)] = true
 	}

@@ -1,4 +1,4 @@
-package parser
+package filterparser
 
 import (
 	"errors"
@@ -23,7 +23,7 @@ type Tokenizer struct {
 // TokenMatcher token matcher structure
 type TokenMatcher struct {
 	Pattern string
-	Re      *regexp.Regexp
+	Regexp  *regexp.Regexp
 	Token   int
 }
 
@@ -55,7 +55,7 @@ func (t *Tokenizer) tokenizeBytes(target []byte) ([]*Token, error) {
 	for len(target) > 0 && match {
 		match = false
 		for _, m := range t.TokenMatchers {
-			token := m.Re.Find(target)
+			token := m.Regexp.Find(target)
 			if len(token) > 0 {
 				convValue, _ := convertValue(token, m.Token)
 				parsed := Token{stringValue: strings.TrimSpace(string(token)), Value: convValue, Type: m.Token}
@@ -66,7 +66,7 @@ func (t *Tokenizer) tokenizeBytes(target []byte) ([]*Token, error) {
 			}
 		}
 		for _, m := range t.IgnoreMatchers {
-			token := m.Re.Find(target)
+			token := m.Regexp.Find(target)
 			if len(token) > 0 {
 				match = true
 				target = target[len(token):] // remove the token from the input

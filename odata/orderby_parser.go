@@ -4,7 +4,8 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/cjlapao/common-go/odata/validatefield"
+	"github.com/cjlapao/common-go/helper/strhelper"
+	"github.com/cjlapao/common-go/validators"
 )
 
 // OrderItem holds order key information
@@ -13,29 +14,24 @@ type OrderItem struct {
 	Order string
 }
 
-func parseStringArray(value *string) ([]string, error) {
-	result := strings.Split(*value, ",")
+const (
+	// Ascendent Order
+	Ascendent = "asc"
+	// Descendent Order
+	Descendent = "desc"
+)
 
-	// trim out space
-	for idx, resultNoSpace := range result {
-		result[idx] = strings.TrimSpace(resultNoSpace)
-	}
+var ErrToManyOrderByStatements = errors.New("cannot have more than 2 items in orderby query")
+var ErrInvalidOrderBy = errors.New("second value in orderby needs to be asc or desc")
 
-	if len(result) == 0 {
-		return nil, errors.New("cannot parse zero length string")
-	}
-
-	return result, nil
-}
-
-func parseOrderArray(value *string) ([]OrderItem, error) {
-	parsedArray, err := parseStringArray(value)
+func parseOrderArray(value string) ([]OrderItem, error) {
+	parsedArray, err := strhelper.ToStringArray(value)
 	if err != nil {
 		return nil, err
 	}
 
 	// Validate values for special characters
-	valid := validatefield.New("~!@#$%^&*()_+-")
+	valid := validators.New("~!@#$%^&*()_+-")
 	for _, val := range parsedArray {
 		if valid.ValidateField(val) || val == "" {
 			return nil, errors.New("Cannot support field " + val)
@@ -50,13 +46,13 @@ func parseOrderArray(value *string) ([]OrderItem, error) {
 		s := strings.Split(compressedSpaces, " ")
 
 		if len(s) > 2 {
-			return nil, errors.New("Cannot have more than 2 items in orderby query")
+			return nil, ErrToManyOrderByStatements
 		}
 
 		if len(s) > 1 {
-			if s[1] != "asc" &&
-				s[1] != "desc" {
-				return nil, errors.New("Second value in orderby needs to be asc or desc")
+			if s[1] != Ascendent &&
+				s[1] != Descendent {
+				return nil, ErrInvalidOrderBy
 			}
 			result[i] = OrderItem{s[0], s[1]}
 			continue

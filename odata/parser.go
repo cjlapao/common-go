@@ -4,6 +4,9 @@ import (
 	"errors"
 	"net/url"
 	"strings"
+
+	"github.com/cjlapao/common-go/helper/strhelper"
+	"github.com/cjlapao/common-go/odata/filterparser"
 )
 
 // OData keywords
@@ -46,22 +49,22 @@ func ParseURLValues(query url.Values) (map[string]interface{}, error) {
 
 		switch queryParam {
 		case Select:
-			parseResult, err = parseStringArray(&value)
+			parseResult, err = strhelper.ToStringArray(value)
 		case Top:
-			parseResult, err = parseInt(&value)
+			parseResult, err = strhelper.ToInt(value)
 		case Skip:
-			parseResult, err = parseInt(&value)
+			parseResult, err = strhelper.ToInt(value)
 		case Count:
 			parseResult = true
 		case OrderBy:
-			parseResult, err = parseOrderArray(&value)
+			parseResult, err = parseOrderArray(value)
 		case InlineCount:
 			if !isValidInlineCountValue(value) {
 				parseErrors = append(parseErrors, "Inline count value needs to be allpages or none")
 			}
 			parseResult = value
 		case Filter:
-			parseResult, err = parseFilterString(value)
+			parseResult, err = filterparser.ParseFilterString(value)
 		default:
 			parseErrors = append(parseErrors, "Keyword '"+queryParam+"' is not valid")
 		}

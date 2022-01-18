@@ -35,6 +35,14 @@ func EmptyOrNil(value interface{}, name ...string) error {
 	return nil
 }
 
+func EmptyOrNilWithMessage(value interface{}, message string) error {
+	if reflect_helper.IsNilOrEmpty(value) {
+		return errors.New(message)
+	}
+
+	return nil
+}
+
 func IsFalse(value bool, name ...string) error {
 	if !value {
 		var message string

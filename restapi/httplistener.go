@@ -17,6 +17,7 @@ import (
 	"github.com/cjlapao/common-go/execution_context"
 	"github.com/cjlapao/common-go/helper/reflect_helper"
 	authControllers "github.com/cjlapao/common-go/identity/controllers"
+	"github.com/cjlapao/common-go/identity/database"
 	"github.com/cjlapao/common-go/identity/interfaces"
 	"github.com/cjlapao/common-go/identity/middleware"
 	logger "github.com/cjlapao/common-go/log"
@@ -110,22 +111,8 @@ func (l *HttpListener) AddDefaultHomepage() *HttpListener {
 }
 
 func (l *HttpListener) WithDefaultAuthentication() *HttpListener {
-	defaultAuthControllers := authControllers.NewDefaultAuthorizationControllers()
-
-	l.AddController(defaultAuthControllers.Token(), "/auth/token", "POST")
-	l.AddController(defaultAuthControllers.Token(), "/auth/{tenantId}/token", "POST")
-	l.AddController(defaultAuthControllers.Introspection(), "/auth/token/introspect", "POST")
-	l.AddController(defaultAuthControllers.Introspection(), "/auth/{tenantId}/token/introspect", "POST")
-	l.AddController(defaultAuthControllers.Introspection(), "/auth/register", "POST")
-	l.AddController(defaultAuthControllers.Introspection(), "/auth/{tenantId}/register", "POST")
-
-	l.AddController(defaultAuthControllers.Configuration(), "/auth/.well-known/openid-configuration", "GET")
-	l.AddController(defaultAuthControllers.Configuration(), "/auth/{tenantId}/.well-known/openid-configuration", "GET")
-	l.AddController(defaultAuthControllers.Jwks(), "/auth/.well-known/openid-configuration/jwks", "GET")
-	l.AddController(defaultAuthControllers.Jwks(), "/auth/{tenantId}/.well-known/openid-configuration/jwks", "GET")
-	l.DefaultAdapters = append([]controllers.Adapter{middleware.EndAuthorizationMiddlewareAdapter()}, l.DefaultAdapters...)
-	l.Options.EnableAuthentication = true
-	return l
+	context := database.NewMemoryUserAdapter()
+	return l.WithAuthentication(context)
 }
 
 func (l *HttpListener) WithAuthentication(context interfaces.UserDatabaseAdapter) *HttpListener {
