@@ -1,4 +1,4 @@
-package parser
+package odata
 
 import (
 	"errors"
@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/cjlapao/common-go/helper/strhelper"
-	"github.com/cjlapao/common-go/odata/filterparser"
 )
 
 // OData keywords
@@ -64,7 +63,7 @@ func ParseURLValues(query url.Values) (map[string]interface{}, error) {
 			}
 			parseResult = value
 		case Filter:
-			parseResult, err = filterparser.ParseFilterString(value)
+			parseResult, err = parseFilterString(value)
 		default:
 			parseErrors = append(parseErrors, "Keyword '"+queryParam+"' is not valid")
 		}

@@ -1,39 +1,113 @@
 package mongodb
 
 import (
+	"context"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/url"
 	"strings"
 
-	parser "github.com/cjlapao/common-go/odata"
+	"github.com/cjlapao/common-go/odata"
+	"github.com/cjlapao/common-go/parser"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 )
+
+type ODataParser struct {
+}
 
 var ErrInvalidInput = errors.New("odata syntax error")
 
-func Parser(query url.Values) {
-	queryMap, err := parser.ParseURLValues(query)
+// AggregateOdata creates a mgo query based on odata parameters
+func AggregateOdata(query url.Values, collection *mongo.Collection) (*mongo.Cursor, error) {
+	ctx := context.Background()
+	builder := NewPipelineBuilder()
+
+	// Parse url values
+	queryMap, err := odata.ParseURLValues(query)
 	if err != nil {
-		fmt.Errorf("%v", err)
+		return nil, err
 	}
 
+	// Prepares the limit pipeline
+	if limit, ok := queryMap[odata.Top].(int); ok {
+		builder.Limit(limit)
+	}
+
+	// Prepares the skip pipeline
+	if skip, ok := queryMap[odata.Skip].(int); ok {
+		builder.Skip(skip)
+	}
+
+	// Prepares the filter object and build the match pipeline
 	filterObj := make(bson.M)
-	if queryMap[parser.Filter] != nil {
-		filterQuery, _ := queryMap[parser.Filter].(*parser.ParseNode)
+	if queryMap[odata.Filter] != nil {
+		filterQuery, _ := queryMap[odata.Filter].(*parser.ParseNode)
 		var err error
 		filterObj, err = applyFilter(filterQuery)
 		if err != nil {
-			fmt.Errorf("%v", err.Error())
+			return nil, ErrInvalidInput
+		}
+
+		// Creates the match pipeline for the filter
+		builder.Match(filterObj)
+	}
+
+	// Prepare Select object and build the project pipeline
+	selectMap := make(bson.M)
+	if queryMap["$select"] != nil {
+		if selectSlice, ok := queryMap["$select"].([]string); ok {
+			for i := 0; i < len(selectSlice); i++ {
+				fieldName := selectSlice[i]
+				selectMap[fieldName] = 1
+			}
+
+			// Creates the project pipeline for the select argument
+			builder.Project(selectMap)
 		}
 	}
 
-	fmt.Printf("%v", queryMap["$top"])
-	fmt.Printf("%v", filterObj)
+	// Prepare the sort object and build the sort pipeline
+	sortMap := make(bson.M)
+	if queryMap[odata.OrderBy] != nil {
+		orderBySlice := queryMap[odata.OrderBy].([]odata.OrderItem)
+		for _, item := range orderBySlice {
+			if item.Order == "desc" {
+				sortMap[item.Field] = -1
+			} else {
+				sortMap[item.Field] = 1
+			}
+		}
+
+		// Create the sort pipeline for the sorting object
+		builder.Sort(sortMap)
+	}
+
+	// Checks if the count flag is true and count the collection records
+	if count, ok := queryMap[odata.Count].(bool); ok {
+		if count {
+			countField := builder.CountCollection(collection)
+			fmt.Printf("%v", countField)
+		}
+	}
+
+	return builder.Aggregate(ctx, collection)
 }
 
+// ODataCount runs a collection.Count() function based on $count odata parameter
+// func ODataCount(collection *mgo.Collection) (int, error) {
+// 	return collection.Count()
+// }
+
+// ODataInlineCount retrieves the total count from a filtered data
+// func ODataInlineCount(collection *mgo.Collection) (int, error) {
+
+// 	return collection.Find(filterObj).Count()
+// }
+
+//nolint :gocyclo
 func applyFilter(node *parser.ParseNode) (bson.M, error) {
 
 	filter := make(bson.M)
@@ -79,9 +153,9 @@ func applyFilter(node *parser.ParseNode) (bson.M, error) {
 				if err != nil || len(decodedString) != 12 {
 					return nil, ErrInvalidInput
 				}
-				objId := primitive.NewObjectID()
-				objId.UnmarshalText(decodedString)
-				value = bson.M{"$" + node.Token.Value.(string): objId}
+				objectId := primitive.NewObjectID()
+				objectId.UnmarshalText(decodedString)
+				value = bson.M{"$" + node.Token.Value.(string): objectId}
 			} else {
 				value = bson.M{"$" + node.Token.Value.(string): node.Children[1].Token.Value}
 			}
@@ -136,8 +210,12 @@ func applyFilter(node *parser.ParseNode) (bson.M, error) {
 				return nil, ErrInvalidInput
 			}
 			node.Children[1].Token.Value = strings.Replace(node.Children[1].Token.Value.(string), "'", "", -1)
-			//nolint: vet
-			value := primitive.Regex{Pattern: "^" + node.Children[1].Token.Value.(string), Options: "gi"}
+
+			value := primitive.Regex{
+				Pattern: "^" + node.Children[1].Token.Value.(string),
+				Options: "gi",
+			}
+
 			filter[node.Children[0].Token.Value.(string)] = value
 
 		case "endswith":
@@ -145,8 +223,11 @@ func applyFilter(node *parser.ParseNode) (bson.M, error) {
 				return nil, ErrInvalidInput
 			}
 			node.Children[1].Token.Value = strings.Replace(node.Children[1].Token.Value.(string), "'", "", -1)
-			//nolint: vet
-			value := primitive.Regex{Pattern: node.Children[1].Token.Value.(string) + "$", Options: "gi"}
+
+			value := primitive.Regex{
+				Pattern: node.Children[1].Token.Value.(string) + "$",
+				Options: "gi",
+			}
 			filter[node.Children[0].Token.Value.(string)] = value
 
 		case "contains":
@@ -154,8 +235,11 @@ func applyFilter(node *parser.ParseNode) (bson.M, error) {
 				return nil, ErrInvalidInput
 			}
 			node.Children[1].Token.Value = strings.Replace(node.Children[1].Token.Value.(string), "'", "", -1)
-			//nolint: vet
-			value := primitive.Regex{Pattern: node.Children[1].Token.Value.(string), Options: "gi"}
+
+			value := primitive.Regex{
+				Pattern: node.Children[1].Token.Value.(string),
+				Options: "gi",
+			}
 			filter[node.Children[0].Token.Value.(string)] = value
 
 		}
