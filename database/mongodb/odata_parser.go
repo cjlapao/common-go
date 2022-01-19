@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"net/url"
 	"strings"
 
+	"github.com/cjlapao/common-go/models"
 	"github.com/cjlapao/common-go/odata"
 	"github.com/cjlapao/common-go/parser"
 	"go.mongodb.org/mongo-driver/bson"
@@ -16,12 +16,58 @@ import (
 )
 
 type ODataParser struct {
+	Collection *mongo.Collection
 }
 
 var ErrInvalidInput = errors.New("odata syntax error")
 
-// AggregateOdata creates a mgo query based on odata parameters
-func AggregateOdata(query url.Values, collection *mongo.Collection) (*mongo.Cursor, error) {
+func EmptyODataParser(collection *mongo.Collection) *ODataParser {
+	result := ODataParser{
+		Collection: collection,
+	}
+
+	return &result
+}
+
+func (odataParser *ODataParser) GetODataResponse(query url.Values) (*models.ODataResponse, error) {
+	ctx := context.Background()
+	response := models.ODataResponse{}
+
+	queryMap, err := odata.ParseURLValues(query)
+	if err != nil {
+		return nil, err
+	}
+
+	// Checks if the count flag is true and count the collection records
+	if count, ok := queryMap[odata.Count].(bool); ok {
+		if count {
+			builder := NewPipelineBuilder()
+			countField := builder.CountCollection(odataParser.Collection)
+			response.Count = countField
+		}
+	}
+
+	cursor, err := odataParser.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	var element []map[string]interface{}
+	err = cursor.All(ctx, &element)
+	if err != nil {
+		return nil, err
+	}
+
+	response.Value = element
+
+	return &response, nil
+}
+
+func (odataParser *ODataParser) Parse(query url.Values, destination interface{}) error {
+	return nil
+}
+
+// Query creates a mgo query based on odata parameters
+func (odataParser *ODataParser) Query(query url.Values) (*mongo.Cursor, error) {
 	ctx := context.Background()
 	builder := NewPipelineBuilder()
 
@@ -85,15 +131,7 @@ func AggregateOdata(query url.Values, collection *mongo.Collection) (*mongo.Curs
 		builder.Sort(sortMap)
 	}
 
-	// Checks if the count flag is true and count the collection records
-	if count, ok := queryMap[odata.Count].(bool); ok {
-		if count {
-			countField := builder.CountCollection(collection)
-			fmt.Printf("%v", countField)
-		}
-	}
-
-	return builder.Aggregate(ctx, collection)
+	return builder.Aggregate(ctx, odataParser.Collection)
 }
 
 // ODataCount runs a collection.Count() function based on $count odata parameter
