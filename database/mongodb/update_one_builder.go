@@ -1,5 +1,6 @@
 package mongodb
 
+//TODO: Refactor implementation
 import (
 	"encoding/json"
 	"errors"
@@ -77,7 +78,7 @@ func (c *UpdateOneBuilder) Build() mongo.UpdateOneModel {
 	for _, updateElement := range c.Elements {
 		bsonElement := primitive.E{
 			Key:   updateElement.Key,
-			Value: updateElement.value,
+			Value: updateElement.Value,
 		}
 
 		updatePrimitives = append(updatePrimitives, bsonElement)
@@ -94,7 +95,7 @@ func (c *UpdateOneBuilder) Build() mongo.UpdateOneModel {
 		for _, filterElement := range c.Filter {
 			bsonElement := primitive.E{
 				Key:   filterElement.Key,
-				Value: filterElement.value,
+				Value: filterElement.Value,
 			}
 
 			filterPrimitives = append(filterPrimitives, bsonElement)

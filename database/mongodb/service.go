@@ -1,5 +1,6 @@
 package mongodb
 
+//TODO: Refactor implementation
 import (
 	"strings"
 
@@ -8,6 +9,8 @@ import (
 )
 
 var globalMongoDBService *MongoDBService
+var globalFactory *MongoFactory
+var tenantFactory *MongoFactory
 
 type MongoDBServiceOptions struct {
 	ConnectionString   string
@@ -15,11 +18,9 @@ type MongoDBServiceOptions struct {
 }
 
 type MongoDBService struct {
-	ConnectionString string
-	GlobalDatabase   string
-	GlobalFactory    *MongoFactory
-	TenantDatabase   string
-	TenantFactory    *MongoFactory
+	ConnectionString   string
+	GlobalDatabaseName string
+	TenantDatabaseName string
 }
 
 func New() *MongoDBService {
@@ -37,11 +38,11 @@ func New() *MongoDBService {
 
 func NewWithOptions(options MongoDBServiceOptions) *MongoDBService {
 	service := MongoDBService{
-		ConnectionString: options.ConnectionString,
-		GlobalDatabase:   options.GlobalDatabaseName,
+		ConnectionString:   options.ConnectionString,
+		GlobalDatabaseName: options.GlobalDatabaseName,
 	}
 	if options.ConnectionString != "" && options.GlobalDatabaseName != "" {
-		service.GlobalFactory = NewFactory(service.ConnectionString).WithDatabase(service.GlobalDatabase)
+		globalFactory = NewFactory(service.ConnectionString).WithDatabase(service.GlobalDatabaseName)
 	}
 
 	globalMongoDBService = &service
@@ -50,10 +51,10 @@ func NewWithOptions(options MongoDBServiceOptions) *MongoDBService {
 
 func Init() *MongoDBService {
 	if globalMongoDBService != nil {
-		if globalMongoDBService.ConnectionString != "" && globalMongoDBService.GlobalDatabase != "" {
-			logger.Info("Initiating MongoDB Service for global database %v", globalMongoDBService.GlobalDatabase)
-			globalMongoDBService.GlobalFactory = NewFactory(globalMongoDBService.ConnectionString).WithDatabase(globalMongoDBService.GlobalDatabase)
-			logger.Info("MongoDB Service for global database %v initiated successfully", globalMongoDBService.GlobalDatabase)
+		if globalMongoDBService.ConnectionString != "" && globalMongoDBService.GlobalDatabaseName != "" {
+			logger.Info("Initiating MongoDB Service for global database %v", globalMongoDBService.GlobalDatabaseName)
+			globalFactory = NewFactory(globalMongoDBService.ConnectionString).WithDatabase(globalMongoDBService.GlobalDatabaseName)
+			logger.Info("MongoDB Service for global database %v initiated successfully", globalMongoDBService.GlobalDatabaseName)
 		}
 		return globalMongoDBService
 	}
@@ -71,35 +72,42 @@ func Get() *MongoDBService {
 
 func (service *MongoDBService) WithDatabase(databaseName string) *MongoDBService {
 	guard.FatalEmptyOrNil(databaseName, "Database name is empty")
-	if !strings.EqualFold(service.GlobalDatabase, databaseName) {
-		service.GlobalDatabase = databaseName
+	if !strings.EqualFold(service.GlobalDatabaseName, databaseName) {
+		service.GlobalDatabaseName = databaseName
 		Init()
 	}
 
 	return service
 }
 
-func (service *MongoDBService) GetGlobalFactory() *MongoFactory {
-	return service.GlobalFactory
+// GlobalDatabase Gets the global database factory and initiate it ready for consuption
+// This will try to only keep a client per session to avoid starvation of the clients
+func (service *MongoDBService) GlobalDatabase() *MongoFactory {
+	if globalFactory == nil {
+		logger.Info("Global factory not initiated, creating instance now.")
+		Init()
+	}
+
+	return globalFactory
 }
 
-func (service *MongoDBService) GetTenantDatabase() (*MongoFactory, string) {
+func (service *MongoDBService) TenantDatabase() *MongoFactory {
 	ctx := execution_context.Get()
 	tenantId := ctx.Authorization.TenantId
 	if tenantId == "" || strings.ToLower(tenantId) == "global" {
-		return service.GlobalFactory, service.GlobalDatabase
+		return service.GlobalDatabase()
 	}
-	if !strings.EqualFold(tenantId, service.TenantDatabase) {
-		service.TenantDatabase = tenantId
-		logger.Info("Initiating MongoDB Service for tenant database %v", service.TenantDatabase)
-		service.TenantFactory = NewFactory(service.ConnectionString).WithDatabase(service.TenantDatabase)
-		logger.Info("MongoDB Service for tenant database %v initiated successfully", service.TenantDatabase)
+	if !strings.EqualFold(tenantId, service.TenantDatabaseName) {
+		service.TenantDatabaseName = tenantId
+		logger.Info("Initiating MongoDB Service for tenant database %v", service.TenantDatabaseName)
+		tenantFactory = NewFactory(service.ConnectionString).WithDatabase(service.TenantDatabaseName)
+		logger.Info("MongoDB Service for tenant database %v initiated successfully", service.TenantDatabaseName)
 	}
 
-	return service.TenantFactory, service.TenantDatabase
+	return tenantFactory
 }
 
 func (service *MongoDBService) GetTenant() string {
-	_, tenant := service.GetTenantDatabase()
-	return tenant
+	service.TenantDatabase()
+	return service.TenantDatabaseName
 }

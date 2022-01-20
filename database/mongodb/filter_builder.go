@@ -1,164 +1,236 @@
 package mongodb
 
 import (
-	"encoding/json"
+	"encoding/hex"
 	"strings"
+
+	"github.com/cjlapao/common-go/parser"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type FilterBuilder struct {
-	Operations []FilterOperation
+// GlobalFilterTokenizer the global filter tokenizer
+var globalFilterTokenizer = filterTokenizer()
+
+// GlobalFilterParser the global filter parser
+var globalFilterParser = filterParser()
+
+type FilterParser struct {
+	filter string
 }
 
-type FilterOperation struct {
-	LeftOperator  MongoOperator
-	Elements      []FilterElement
-	TestElements  []FieldFilterBuilder
-	RightOperator MongoOperator
-}
-
-func NewFilterBuilder() *FilterBuilder {
-	return &FilterBuilder{
-		Operations: make([]FilterOperation, 0),
+func NewFilterParser(filter string) FilterParser {
+	return FilterParser{
+		filter: filter,
 	}
 }
 
-func (b *FilterBuilder) And() *FilterBuilder {
-	b.addSimpleOperation(AND)
-	return b
-}
-
-func (b *FilterBuilder) OldAnd(fieldName string, fieldValue string) *FilterBuilder {
-	b.addOperation(AND, fieldName, fieldValue)
-	return b
-}
-
-func (b *FilterBuilder) Or(fieldName string, fieldValue string) *FilterBuilder {
-	b.addOperation(OR, fieldName, fieldValue)
-	return b
-}
-
-func (b *FilterBuilder) Nor(fieldName string, fieldValue string) *FilterBuilder {
-	b.addOperation(NOR, fieldName, fieldValue)
-	return b
-}
-
-func (b *FilterBuilder) Build() interface{} {
-	result := make(map[string]interface{})
-	for _, operation := range b.Operations {
-		elementMaps := make([]map[string]interface{}, 0)
-		for _, element := range operation.Elements {
-			elementMaps = append(elementMaps, element.Encode())
-		}
-		result[operation.LeftOperator.String()] = elementMaps
+func (filterParser FilterParser) Parse() (interface{}, error) {
+	parsedFilter, err := parseFilterString(filterParser.filter)
+	if err != nil {
+		return nil, err
 	}
 
-	j, _ := json.Marshal(result)
-	test := string(j)
-	println(test)
-	return result
+	result, err := applyFilter(parsedFilter)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }
 
-func (b *FilterBuilder) addOperation(op MongoOperator, fieldName string, fieldValue interface{}) {
-	element := FilterElement{
-		Key:   fieldName,
-		Value: fieldValue,
+// ParseFilterString Converts an input string from the $filter part of the URL into a parse
+// tree that can be used by providers to create a response.
+func parseFilterString(filter string) (*parser.ParseNode, error) {
+	tokens, err := globalFilterTokenizer.Tokenize(filter)
+	if err != nil {
+		return nil, err
 	}
 
-	if len(b.Operations) == 0 {
-		operation := FilterOperation{
-			LeftOperator:  op,
-			Elements:      make([]FilterElement, 0),
-			RightOperator: NONE,
-		}
-		operation.Elements = append(operation.Elements, element)
-		b.Operations = append(b.Operations, operation)
-		return
+	tree, err := globalFilterParser.Parse(tokens)
+	if err != nil {
+		return nil, err
 	}
 
-	exists, idx := b.operationExists(op)
-	if exists {
-		operation := &b.Operations[idx]
-		if idx > 0 {
-			previousOperation := &b.Operations[idx-1]
-			previousOperation.RightOperator = op
-		}
-		operation.Elements = append(operation.Elements, element)
-	} else {
-		previousOperation := &b.Operations[len(b.Operations)-1]
-		previousOperation.RightOperator = op
-		operation := FilterOperation{
-			LeftOperator:  op,
-			Elements:      make([]FilterElement, 0),
-			RightOperator: NONE,
-		}
-		operation.Elements = append(operation.Elements, element)
-		b.Operations = append(b.Operations, operation)
-	}
+	return tree, nil
 }
 
-func (b *FilterBuilder) addSimpleOperation(op MongoOperator) {
-	if len(b.Operations) == 0 {
-		operation := FilterOperation{
-			LeftOperator:  op,
-			Elements:      make([]FilterElement, 0),
-			RightOperator: NONE,
-		}
-		b.Operations = append(b.Operations, operation)
-		return
-	}
+// FilterTokenizer Creates a tokenizer capable of tokenizing filter statements
+func filterTokenizer() *parser.Tokenizer {
+	tokenizer := parser.Tokenizer{}
+	tokenizer.Add("^\\(", parser.FilterTokenOpenParen)
+	tokenizer.Add("^\\)", parser.FilterTokenCloseParen)
+	tokenizer.Add("^,", parser.FilterTokenComma)
+	tokenizer.Add("^(eq|ne|gt|ge|lt|le|and|or) ", parser.FilterTokenLogical)
+	tokenizer.Add("^(contains|endswith|startswith)", parser.FilterTokenFunc)
+	tokenizer.Add("^-?[0-9]+\\.[0-9]+", parser.FilterTokenFloat)
+	tokenizer.Add("^-?[0-9]+", parser.FilterTokenInteger)
+	tokenizer.Add("^(?i:true|false)", parser.FilterTokenBoolean)
+	tokenizer.Add("^'(''|[^'])*'", parser.FilterTokenString)
+	tokenizer.Add("^-?[0-9]{4,4}-[0-9]{2,2}-[0-9]{2,2}", parser.FilterTokenDate)
+	tokenizer.Add("^[0-9]{2,2}:[0-9]{2,2}(:[0-9]{2,2}(.[0-9]+)?)?", parser.FilterTokenTime)
+	tokenizer.Add("^[0-9]{4,4}-[0-9]{2,2}-[0-9]{2,2}T[0-9]{2,2}:[0-9]{2,2}(:[0-9]{2,2}(.[0-9]+)?)?(Z|[+-][0-9]{2,2}:[0-9]{2,2})", parser.FilterTokenDateTime)
+	tokenizer.Add("^[a-zA-Z][a-zA-Z0-9_.]*", parser.FilterTokenLiteral)
+	tokenizer.Add("^_id", parser.FilterTokenLiteral)
+	tokenizer.Ignore("^ ", parser.FilterTokenWhitespace)
 
-	exists, idx := b.operationExists(op)
-	if exists {
-		if idx > 0 {
-			previousOperation := &b.Operations[idx-1]
-			previousOperation.RightOperator = op
-		}
-	} else {
-		previousOperation := &b.Operations[len(b.Operations)-1]
-		previousOperation.RightOperator = op
-		operation := FilterOperation{
-			LeftOperator:  op,
-			Elements:      make([]FilterElement, 0),
-			RightOperator: NONE,
-		}
-		b.Operations = append(b.Operations, operation)
-	}
+	return &tokenizer
 }
 
-func (b *FilterBuilder) operationExists(op MongoOperator) (bool, int) {
-	for idx, operation := range b.Operations {
-		if operation.LeftOperator == op {
-			return true, idx
-		}
-	}
+// FilterParser creates the definitions for operators and functions
+func filterParser() *parser.Parser {
+	filterParser := parser.EmptyParser()
+	filterParser.DefineOperator("gt", 2, parser.OpAssociationLeft, 4)
+	filterParser.DefineOperator("ge", 2, parser.OpAssociationLeft, 4)
+	filterParser.DefineOperator("lt", 2, parser.OpAssociationLeft, 4)
+	filterParser.DefineOperator("le", 2, parser.OpAssociationLeft, 4)
+	filterParser.DefineOperator("eq", 2, parser.OpAssociationLeft, 3)
+	filterParser.DefineOperator("ne", 2, parser.OpAssociationLeft, 3)
+	filterParser.DefineOperator("and", 2, parser.OpAssociationLeft, 2)
+	filterParser.DefineOperator("or", 2, parser.OpAssociationLeft, 1)
+	filterParser.DefineFunction("contains", 2)
+	filterParser.DefineFunction("endswith", 2)
+	filterParser.DefineFunction("startswith", 2)
 
-	return false, -1
+	return filterParser
 }
 
-func (b *FilterBuilder) fieldExistsInOperation(op MongoOperator, fieldName string) (bool, int) {
-	for _, operation := range b.Operations {
-		if operation.LeftOperator == op {
-			for idx, field := range operation.TestElements {
-				if strings.EqualFold(field.FieldName, fieldName) {
-					return true, idx
-				}
+func (filterParser FilterParser) applyFilter(node *parser.ParseNode) (bson.M, error) {
+
+	filter := make(bson.M)
+
+	if _, ok := node.Token.Value.(string); ok {
+		switch node.Token.Value {
+
+		case "eq":
+			// Escape single quotes in the case of strings
+			if _, valueOk := node.Children[1].Token.Value.(string); valueOk {
+				node.Children[1].Token.Value = strings.Replace(node.Children[1].Token.Value.(string), "'", "", -1)
 			}
+			value := bson.M{"$" + node.Token.Value.(string): node.Children[1].Token.Value}
+			if _, keyOk := node.Children[0].Token.Value.(string); !keyOk {
+				return nil, ErrInvalidInput
+			}
+			filter[node.Children[0].Token.Value.(string)] = value
+
+		case "ne":
+			// Escape single quotes in the case of strings
+			if _, valueOk := node.Children[1].Token.Value.(string); valueOk {
+				node.Children[1].Token.Value = strings.Replace(node.Children[1].Token.Value.(string), "'", "", -1)
+			}
+			value := bson.M{"$" + node.Token.Value.(string): node.Children[1].Token.Value}
+			if _, keyOk := node.Children[0].Token.Value.(string); !keyOk {
+				return nil, ErrInvalidInput
+			}
+			filter[node.Children[0].Token.Value.(string)] = value
+
+		case "gt":
+			var keyString string
+			if keyString, ok = node.Children[0].Token.Value.(string); !ok {
+				return nil, ErrInvalidInput
+			}
+
+			var value bson.M
+			if keyString == "_id" {
+				var idString string
+				if _, ok := node.Children[1].Token.Value.(string); ok {
+					idString = strings.Replace(node.Children[1].Token.Value.(string), "'", "", -1)
+				}
+				decodedString, err := hex.DecodeString(idString)
+				if err != nil || len(decodedString) != 12 {
+					return nil, ErrInvalidInput
+				}
+				objectId := primitive.NewObjectID()
+				objectId.UnmarshalText(decodedString)
+				value = bson.M{"$" + node.Token.Value.(string): objectId}
+			} else {
+				value = bson.M{"$" + node.Token.Value.(string): node.Children[1].Token.Value}
+			}
+			filter[keyString] = value
+
+		case "ge":
+			value := bson.M{"$gte": node.Children[1].Token.Value}
+			if _, ok := node.Children[0].Token.Value.(string); !ok {
+				return nil, ErrInvalidInput
+			}
+			filter[node.Children[0].Token.Value.(string)] = value
+
+		case "lt":
+			value := bson.M{"$" + node.Token.Value.(string): node.Children[1].Token.Value}
+			if _, ok := node.Children[0].Token.Value.(string); !ok {
+				return nil, ErrInvalidInput
+			}
+			filter[node.Children[0].Token.Value.(string)] = value
+
+		case "le":
+			value := bson.M{"$lte": node.Children[1].Token.Value}
+			if _, ok := node.Children[0].Token.Value.(string); !ok {
+				return nil, ErrInvalidInput
+			}
+			filter[node.Children[0].Token.Value.(string)] = value
+
+		case "and":
+			leftFilter, err := applyFilter(node.Children[0]) // Left children
+			if err != nil {
+				return nil, err
+			}
+			rightFilter, _ := applyFilter(node.Children[1]) // Right children
+			if err != nil {
+				return nil, err
+			}
+			filter["$and"] = []bson.M{leftFilter, rightFilter}
+
+		case "or":
+			leftFilter, err := applyFilter(node.Children[0]) // Left children
+			if err != nil {
+				return nil, err
+			}
+			rightFilter, err := applyFilter(node.Children[1]) // Right children
+			if err != nil {
+				return nil, err
+			}
+			filter["$or"] = []bson.M{leftFilter, rightFilter}
+
+		//Functions
+		case "startswith":
+			if _, ok := node.Children[1].Token.Value.(string); !ok {
+				return nil, ErrInvalidInput
+			}
+			node.Children[1].Token.Value = strings.Replace(node.Children[1].Token.Value.(string), "'", "", -1)
+
+			value := primitive.Regex{
+				Pattern: "^" + node.Children[1].Token.Value.(string),
+				Options: "gi",
+			}
+
+			filter[node.Children[0].Token.Value.(string)] = value
+
+		case "endswith":
+			if _, ok := node.Children[1].Token.Value.(string); !ok {
+				return nil, ErrInvalidInput
+			}
+			node.Children[1].Token.Value = strings.Replace(node.Children[1].Token.Value.(string), "'", "", -1)
+
+			value := primitive.Regex{
+				Pattern: node.Children[1].Token.Value.(string) + "$",
+				Options: "gi",
+			}
+			filter[node.Children[0].Token.Value.(string)] = value
+
+		case "contains":
+			if _, ok := node.Children[1].Token.Value.(string); !ok {
+				return nil, ErrInvalidInput
+			}
+			node.Children[1].Token.Value = strings.Replace(node.Children[1].Token.Value.(string), "'", "", -1)
+
+			value := primitive.Regex{
+				Pattern: node.Children[1].Token.Value.(string),
+				Options: "gi",
+			}
+			filter[node.Children[0].Token.Value.(string)] = value
+
 		}
 	}
-
-	return false, -1
-}
-
-func (b *FilterBuilder) getCurrentOperation() *FilterOperation {
-	if len(b.Operations) == 0 {
-		operation := FilterOperation{
-			LeftOperator:  NONE,
-			Elements:      make([]FilterElement, 0),
-			RightOperator: NONE,
-		}
-		b.Operations = append(b.Operations, operation)
-		return &operation
-	} else {
-		return &b.Operations[len(b.Operations)-1]
-	}
+	return filter, nil
 }

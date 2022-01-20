@@ -1,5 +1,6 @@
 package mongodb
 
+//TODO: Refactor implementation
 import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -33,7 +34,7 @@ func (c *RemoveOneBuilder) Build() mongo.DeleteOneModel {
 		for _, filterElement := range c.Filter {
 			bsonElement := primitive.E{
 				Key:   filterElement.Key,
-				Value: filterElement.value,
+				Value: filterElement.Value,
 			}
 
 			filterPrimitives = append(filterPrimitives, bsonElement)

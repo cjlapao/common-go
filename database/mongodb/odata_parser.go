@@ -1,5 +1,6 @@
 package mongodb
 
+//TODO: Refactor implementation
 import (
 	"context"
 	"encoding/hex"
@@ -16,12 +17,12 @@ import (
 )
 
 type ODataParser struct {
-	Collection *mongo.Collection
+	Collection *mongoCollection
 }
 
 var ErrInvalidInput = errors.New("odata syntax error")
 
-func EmptyODataParser(collection *mongo.Collection) *ODataParser {
+func EmptyODataParser(collection *mongoCollection) *ODataParser {
 	result := ODataParser{
 		Collection: collection,
 	}
@@ -42,7 +43,7 @@ func (odataParser *ODataParser) GetODataResponse(query url.Values) (*models.ODat
 	if count, ok := queryMap[odata.Count].(bool); ok {
 		if count {
 			builder := NewPipelineBuilder()
-			countField := builder.CountCollection(odataParser.Collection)
+			countField := builder.CountCollection(odataParser.Collection.coll)
 			response.Count = countField
 		}
 	}
@@ -131,7 +132,7 @@ func (odataParser *ODataParser) Query(query url.Values) (*mongo.Cursor, error) {
 		builder.Sort(sortMap)
 	}
 
-	return builder.Aggregate(ctx, odataParser.Collection)
+	return builder.Aggregate(ctx, odataParser.Collection.coll)
 }
 
 // ODataCount runs a collection.Count() function based on $count odata parameter
@@ -145,7 +146,6 @@ func (odataParser *ODataParser) Query(query url.Values) (*mongo.Cursor, error) {
 // 	return collection.Find(filterObj).Count()
 // }
 
-//nolint :gocyclo
 func applyFilter(node *parser.ParseNode) (bson.M, error) {
 
 	filter := make(bson.M)

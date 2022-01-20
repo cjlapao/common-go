@@ -114,9 +114,8 @@ func (u MongoDBContextAdapter) UpdateUserEmailVerifyToken(id string, token strin
 	return false
 }
 
-func getMongoDBTenantRepository() mongodb.Repository {
+func getMongoDBTenantRepository() mongodb.MongoRepository {
 	mongodbSvc := mongodb.Get()
-	factory, currentDatabase := mongodbSvc.GetTenantDatabase()
-	userRepo := mongodb.NewRepository(factory, currentDatabase, identity_constants.IdentityUsersCollection)
+	userRepo := mongodbSvc.TenantDatabase().NewRepository(identity_constants.IdentityUsersCollection)
 	return userRepo
 }

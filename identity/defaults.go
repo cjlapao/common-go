@@ -90,7 +90,7 @@ func Seed(factory *mongodb.MongoFactory, databaseName string) {
 }
 
 func SeedUsers(factory *mongodb.MongoFactory, databaseName string) {
-	repo := mongodb.NewRepository(factory, databaseName, constants.IdentityUsersCollection)
+	repo := factory.NewDatabaseRepository(databaseName, constants.IdentityUsersCollection)
 	users := GetDefaultUsers()
 	for _, user := range users {
 		model := mongodb.NewUpdateOneBuilder().FilterBy("email", user.Email).Encode(user, "refreshToken").Build()
