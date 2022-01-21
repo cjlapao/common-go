@@ -2,7 +2,6 @@ package mongodb
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/cjlapao/common-go/guard"
@@ -12,9 +11,9 @@ import (
 )
 
 type MongoRepository interface {
-	Filter(filter interface{}) []*interface{}
-	Find(fieldName string, value string) []*interface{}
-	FindOne(fieldName string, value string) *mongo.SingleResult
+	Find(filter interface{}) (*mongoCursor, error)
+	FindBy(fieldName string, value interface{}) (*mongoCursor, error)
+	FindOne(fieldName string, value string) *mongoSingleResult
 	InsertOne(element interface{}) *mongo.InsertOneResult
 	InsertMany(elements []interface{}) *mongo.InsertManyResult
 	UpsertOne(model mongo.UpdateOneModel) *mongo.UpdateResult
@@ -54,8 +53,7 @@ func (mongoFactory *MongoFactory) NewDatabaseRepository(database string, collect
 	return &defaultRepo
 }
 
-func (r *MongoDefaultRepository) Filter(filter interface{}) []*interface{} {
-	logger.Info("Session %v", fmt.Sprintf("%v", r.factory.Client.cl.NumberSessionsInProgress()))
+func (repository *MongoDefaultRepository) Find(filter interface{}) (*mongoCursor, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	var filterToApply interface{}
 
@@ -65,6 +63,7 @@ func (r *MongoDefaultRepository) Filter(filter interface{}) []*interface{} {
 		} else {
 			processedFilter, err := NewFilterParser(stringFilter).Parse()
 			if err != nil {
+				logger.Error("There was an error applying the filter, %v", err.Error())
 				filterToApply = bson.D{{}}
 			} else {
 				filterToApply = processedFilter
@@ -76,56 +75,49 @@ func (r *MongoDefaultRepository) Filter(filter interface{}) []*interface{} {
 
 	defer cancel()
 
-	cur, err := r.Collection.coll.Find(ctx, filterToApply)
-	if err != nil {
-		logger.LogError(err)
-		return nil
-	}
-	var elements []*interface{}
-	for cur.Next(ctx) {
-		var element interface{}
-		err := cur.Decode(&element)
-		if err != nil {
-			logger.LogError(err)
-			return nil
-		}
-		elements = append(elements, &element)
-	}
+	cur, err := repository.Collection.coll.Find(ctx, filterToApply)
 
-	return elements
+	return &mongoCursor{cursor: cur}, err
 }
 
-func (r *MongoDefaultRepository) Find(fieldName string, value string) []*interface{} {
+func (r *MongoDefaultRepository) FindBy(fieldName string, value interface{}) (*mongoCursor, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-	defer cancel()
-	filter := bson.D{
-		{
-			Key:   fieldName,
-			Value: value,
-		},
+	var filter interface{}
+
+	if literalValue, ok := value.(string); ok {
+		if value == "" {
+			filter = bson.D{{}}
+		} else {
+			processedFilter, err := NewFilterParser(fieldName + " " + literalValue).Parse()
+			if err != nil {
+				filter = bson.D{
+					{
+						Key:   fieldName,
+						Value: value,
+					},
+				}
+			} else {
+				filter = processedFilter
+			}
+		}
+	} else {
+		filter = bson.D{
+			{
+				Key:   fieldName,
+				Value: value,
+			},
+		}
 	}
+
+	defer cancel()
 
 	cur, err := r.Collection.coll.Find(ctx, filter)
-	if err != nil {
-		logger.LogError(err)
-		return nil
-	}
-	var elements []*interface{}
-	for cur.Next(ctx) {
-		var element *interface{}
-		err := cur.Decode(&element)
-		if err != nil {
-			logger.LogError(err)
-			return nil
-		}
-		elements = append(elements, element)
-	}
 
-	return elements
+	return &mongoCursor{cursor: cur}, err
 }
 
-func (r *MongoDefaultRepository) FindOne(fieldName string, value string) *mongo.SingleResult {
+func (r *MongoDefaultRepository) FindOne(fieldName string, value string) *mongoSingleResult {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	defer cancel()
@@ -136,9 +128,9 @@ func (r *MongoDefaultRepository) FindOne(fieldName string, value string) *mongo.
 		},
 	}
 
-	cur := r.Collection.coll.FindOne(ctx, filter)
+	result := r.Collection.coll.FindOne(ctx, filter)
 
-	return cur
+	return &mongoSingleResult{sr: result}
 }
 
 func (r *MongoDefaultRepository) InsertOne(element interface{}) *mongo.InsertOneResult {

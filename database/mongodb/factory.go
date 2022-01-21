@@ -2,6 +2,8 @@ package mongodb
 
 import (
 	"context"
+	"errors"
+	"reflect"
 	"time"
 
 	"github.com/cjlapao/common-go/database"
@@ -23,7 +25,7 @@ type MongoDatabaseClient interface {
 
 type MongoCollectionClient interface {
 	Find(context.Context, interface{}) (mongoCursor, error)
-	FindOne(context.Context, interface{}) mongosingleResult
+	FindOne(context.Context, interface{}) mongoSingleResult
 	InsertOne(context.Context, interface{}) (interface{}, error)
 }
 
@@ -49,8 +51,27 @@ type mongoCursor struct {
 	cursor *mongo.Cursor
 }
 
-type mongosingleResult struct {
+func (cursor mongoCursor) Decode(destination interface{}) error {
+	ctx := context.Background()
+	var destType = reflect.TypeOf(destination)
+	if destType.Kind() != reflect.Ptr {
+		return errors.New("dest must be a pointer type")
+	}
+
+	return cursor.cursor.All(ctx, destination)
+}
+
+type mongoSingleResult struct {
 	sr *mongo.SingleResult
+}
+
+func (cursor mongoSingleResult) Decode(destination interface{}) error {
+	var destType = reflect.TypeOf(destination)
+	if destType.Kind() != reflect.Ptr {
+		return errors.New("dest must be a pointer type")
+	}
+
+	return cursor.sr.Decode(destination)
 }
 
 // MongoFactory MongoFactory Entity
