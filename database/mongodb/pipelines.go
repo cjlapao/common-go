@@ -12,51 +12,80 @@ import (
 
 type Pipeline struct {
 	Type      string
-	Primitive primitive.D
+	primitive primitive.D
 }
 
 type filter struct {
-	Field string
-	Value interface{}
+	field     string
+	operation filterOperation
+	value     interface{}
 }
 
-type projectField struct {
-	Field       string
-	ProjectedAs string
-}
-
-type PipelineBuilder struct {
-	Pipelines       []Pipeline
-	Filters         []filter
-	ProjectedFields []projectField
-}
-
-type MongoSort int
+type filterOperation string
 
 const (
-	Asc  MongoSort = 1
-	Desc MongoSort = -1
+	GreaterThan        filterOperation = "gt"
+	GreaterOrEqualThan filterOperation = "ge"
+	LowerThan          filterOperation = "lt"
+	LowerOrEqualThan   filterOperation = "le"
+	Equal              filterOperation = "eq"
+	NotEqual           filterOperation = "ne"
+	Contains           filterOperation = "contains"
+	StartsWith         filterOperation = "endswith"
+	EndsWith           filterOperation = "statwith"
+	RegExp             filterOperation = "regex"
 )
 
-func NewPipelineBuilder() *PipelineBuilder {
+type projectField struct {
+	field       string
+	projectedAs string
+}
+
+type sortField struct {
+	field string
+	order mongoSort
+}
+
+type mongoSort string
+
+const (
+	Asc  mongoSort = "asc"
+	Desc mongoSort = "desc"
+)
+
+type PipelineBuilder struct {
+	collection      *mongo.Collection
+	pipelines       []Pipeline
+	filters         []filter
+	sortingFields   []sortField
+	projectedFields []projectField
+}
+
+// NewPipelineBuilder Creates a new pipeline builder for a specific collection
+func NewPipelineBuilder(collection *mongoCollection) *PipelineBuilder {
 	builder := PipelineBuilder{}
-	builder.Pipelines = make([]Pipeline, 0)
-	builder.ProjectedFields = make([]projectField, 0)
-	builder.Filters = make([]filter, 0)
+	builder.pipelines = make([]Pipeline, 0)
+	builder.projectedFields = make([]projectField, 0)
+	builder.filters = make([]filter, 0)
+	builder.sortingFields = make([]sortField, 0)
+	builder.collection = collection.coll
 
 	return &builder
 }
 
+// Add Adds a user custom pipeline to the builder
 func (pipelineBuilder *PipelineBuilder) Add(pipeline bson.D) *PipelineBuilder {
 	pipelineEntry := Pipeline{
 		Type:      "USER",
-		Primitive: pipeline,
+		primitive: pipeline,
 	}
 
-	pipelineBuilder.Pipelines = append(pipelineBuilder.Pipelines, pipelineEntry)
+	pipelineBuilder.pipelines = append(pipelineBuilder.pipelines, pipelineEntry)
 	return pipelineBuilder
 }
 
+// Page Creates a paging pipeline based in the page number and page size, this will
+// generate a $skip and a $limit pipeline if the page and skip are filled in
 func (pipelineBuilder *PipelineBuilder) Page(page int, pageSize int) *PipelineBuilder {
 	if page == -1 || pageSize <= 0 {
 		return pipelineBuilder
@@ -73,14 +102,16 @@ func (pipelineBuilder *PipelineBuilder) Page(page int, pageSize int) *PipelineBu
 	return pipelineBuilder
 }
 
-func (pipelineBuilder *PipelineBuilder) GetCount(collection *mongo.Collection) int {
+// Gets the pipeline count based in the current set of pipelines, this will take into
+// consideration any filtering done by the user but not any system pipelines
+func (pipelineBuilder *PipelineBuilder) GetCount() int {
 	ctx := context.Background()
-	cursor, err := pipelineBuilder.Count().AggregateUserWithCount(ctx, collection)
+	cursor, err := pipelineBuilder.Count().AggregateUserWithCount()
 	if err != nil {
 		return -1
 	}
 	var element []map[string]interface{}
-	err = cursor.All(ctx, &element)
+	err = cursor.cursor.All(ctx, &element)
 	if err != nil || len(element) == 0 {
 		return 0
 	}
@@ -88,7 +119,9 @@ func (pipelineBuilder *PipelineBuilder) GetCount(collection *mongo.Collection) i
 	return int(element[0]["count"].(int32))
 }
 
-func (pipelineBuilder *PipelineBuilder) CountCollection(collection *mongo.Collection) int {
+// CountCollection This will count the pipeline collection excluding anything from the pipelines
+// we can use this for odata responses or to count how many objects the collection has
+func (pipelineBuilder *PipelineBuilder) CountCollection() int {
 	ctx := context.Background()
 	countDocument := bson.D{
 		{
@@ -99,7 +132,7 @@ func (pipelineBuilder *PipelineBuilder) CountCollection(collection *mongo.Collec
 
 	pipeline := bson.A{}
 	pipeline = append(pipeline, countDocument)
-	cursor, err := collection.Aggregate(ctx, pipeline)
+	cursor, err := pipelineBuilder.collection.Aggregate(ctx, pipeline)
 	if err != nil {
 		return -1
 	}
@@ -112,10 +145,12 @@ func (pipelineBuilder *PipelineBuilder) CountCollection(collection *mongo.Collec
 	return int(element[0]["count"].(int32))
 }
 
+// Count Adds a count pipeline, this will overseed any other pipeline and will always return a count
+// pipeline response with a value
 func (pipelineBuilder *PipelineBuilder) Count() *PipelineBuilder {
 	countPipeline := Pipeline{
 		Type: "COUNT",
-		Primitive: bson.D{
+		primitive: bson.D{
 			{
 				Key:   "$count",
 				Value: "count",
@@ -123,35 +158,23 @@ func (pipelineBuilder *PipelineBuilder) Count() *PipelineBuilder {
 		},
 	}
 
-	has, index := pipelineBuilder.Has("COUNT")
+	has, index := pipelineBuilder.has("COUNT")
 	if !has {
-		pipelineBuilder.Pipelines = append(pipelineBuilder.Pipelines, countPipeline)
+		pipelineBuilder.pipelines = append(pipelineBuilder.pipelines, countPipeline)
 	} else {
-		pipelineBuilder.Pipelines[index] = countPipeline
+		pipelineBuilder.pipelines[index] = countPipeline
 	}
 
 	return pipelineBuilder
 }
 
-func (pipelineBuilder *PipelineBuilder) Filter(field string, value interface{}) *PipelineBuilder {
-	has, index := pipelineBuilder.hasFilteredField(field)
-	if !has {
-		filter := filter{
-			Field: field,
-			Value: value,
-		}
-		pipelineBuilder.Filters = append(pipelineBuilder.Filters, filter)
-	} else {
-		pipelineBuilder.Filters[index].Value = value
-	}
-
-	return pipelineBuilder
-}
-
+// Match Adds a Match pipeline using a complex interface, this allows finer tunning in the required
+// query, there is no validation of the passed value and it needs to be a valid query.
+// Use the filter pipeline if you want to pass an odata type of query
 func (pipelineBuilder *PipelineBuilder) Match(value interface{}) *PipelineBuilder {
 	matchPipeline := Pipeline{
 		Type: "MATCH",
-		Primitive: bson.D{
+		primitive: bson.D{
 			{
 				Key:   "$match",
 				Value: value,
@@ -159,20 +182,72 @@ func (pipelineBuilder *PipelineBuilder) Match(value interface{}) *PipelineBuilde
 		},
 	}
 
-	has, index := pipelineBuilder.Has("MATCH")
+	has, index := pipelineBuilder.has("MATCH")
 	if !has {
-		pipelineBuilder.Pipelines = append(pipelineBuilder.Pipelines, matchPipeline)
+		pipelineBuilder.pipelines = append(pipelineBuilder.pipelines, matchPipeline)
 	} else {
-		pipelineBuilder.Pipelines[index] = matchPipeline
+		pipelineBuilder.pipelines[index] = matchPipeline
 	}
 
 	return pipelineBuilder
 }
 
+// FilterBy Adds a Match pipeline for a specific field, this allow simple operations always with
+// and joining fields if they are more than one, use the Filter pipeline to pass in a more complex
+// odata type of query for a better control of the filtering
+func (pipelineBuilder *PipelineBuilder) FilterBy(field string, operation filterOperation, value interface{}) *PipelineBuilder {
+	has, index := pipelineBuilder.hasFilteredField(field)
+	if !has {
+		filter := filter{
+			field:     field,
+			operation: operation,
+			value:     value,
+		}
+
+		pipelineBuilder.filters = append(pipelineBuilder.filters, filter)
+	} else {
+		pipelineBuilder.filters[index].value = value
+	}
+
+	return pipelineBuilder
+}
+
+// Filter Adds a Match pipeline using a odata type of query for a easier and powerful query language
+// If the expressing fails to parse it will not be added to the pipeline
+func (pipelineBuilder *PipelineBuilder) Filter(filter string) *PipelineBuilder {
+	filterParser := NewFilterParser(filter)
+	parsedFilter, err := filterParser.Parse()
+
+	if err != nil {
+		return pipelineBuilder
+	}
+	matchPipeline := Pipeline{
+		Type: "MATCH",
+		primitive: bson.D{
+			{
+				Key:   "$match",
+				Value: parsedFilter,
+			},
+		},
+	}
+
+	has, index := pipelineBuilder.has("MATCH")
+	if !has {
+		pipelineBuilder.pipelines = append(pipelineBuilder.pipelines, matchPipeline)
+	} else {
+		pipelineBuilder.pipelines[index] = matchPipeline
+	}
+
+	return pipelineBuilder
+}
+
+// Project Adds a projection pipeline using a complex interface, this allows finer tunning in the required
+// query, there is no validation of the passed value and it needs to be a valid query.
+// Use ProjectField to build it using individual fields
 func (pipelineBuilder *PipelineBuilder) Project(fields interface{}) *PipelineBuilder {
 	projectPipeline := Pipeline{
 		Type: "PROJECT",
-		Primitive: bson.D{
+		primitive: bson.D{
 			{
 				Key:   "$project",
 				Value: fields,
@@ -180,35 +255,42 @@ func (pipelineBuilder *PipelineBuilder) Project(fields interface{}) *PipelineBui
 		},
 	}
 
-	has, index := pipelineBuilder.Has("PROJECT")
+	has, index := pipelineBuilder.has("PROJECT")
 	if !has {
-		pipelineBuilder.Pipelines = append(pipelineBuilder.Pipelines, projectPipeline)
+		pipelineBuilder.pipelines = append(pipelineBuilder.pipelines, projectPipeline)
 	} else {
-		pipelineBuilder.Pipelines[index] = projectPipeline
+		pipelineBuilder.pipelines[index] = projectPipeline
 	}
 
 	return pipelineBuilder
 }
 
+// ProjectField adds a field to be projected by the pipeline, this allows to easily build a projection
+// of complex fields without adding a pre built interface.
 func (pipelineBuilder *PipelineBuilder) ProjectField(field string, projectedAs string) *PipelineBuilder {
 	has, index := pipelineBuilder.hasProjectedField(field)
 	if !has {
 		projected := projectField{
-			Field:       field,
-			ProjectedAs: projectedAs,
+			field:       field,
+			projectedAs: projectedAs,
 		}
-		pipelineBuilder.ProjectedFields = append(pipelineBuilder.ProjectedFields, projected)
+		pipelineBuilder.projectedFields = append(pipelineBuilder.projectedFields, projected)
 	} else {
-		pipelineBuilder.ProjectedFields[index].ProjectedAs = projectedAs
+		pipelineBuilder.projectedFields[index].projectedAs = projectedAs
 	}
 
 	return pipelineBuilder
 }
 
+// Skip adds a skip pipeline, if the skip is lower than 0 then no pipeline is added
 func (pipelineBuilder *PipelineBuilder) Skip(skip int) *PipelineBuilder {
+	if skip < 0 {
+		return pipelineBuilder
+	}
+
 	skipPipeline := Pipeline{
 		Type: "SKIP",
-		Primitive: bson.D{
+		primitive: bson.D{
 			{
 				Key:   "$skip",
 				Value: skip,
@@ -216,20 +298,25 @@ func (pipelineBuilder *PipelineBuilder) Skip(skip int) *PipelineBuilder {
 		},
 	}
 
-	has, index := pipelineBuilder.Has("SKIP")
+	has, index := pipelineBuilder.has("SKIP")
 	if !has {
-		pipelineBuilder.Pipelines = append(pipelineBuilder.Pipelines, skipPipeline)
+		pipelineBuilder.pipelines = append(pipelineBuilder.pipelines, skipPipeline)
 	} else {
-		pipelineBuilder.Pipelines[index] = skipPipeline
+		pipelineBuilder.pipelines[index] = skipPipeline
 	}
 
 	return pipelineBuilder
 }
 
+// Limit Adds a limit pipeline, if the limit is lower or equal than 0 then tno pipeline is added
 func (pipelineBuilder *PipelineBuilder) Limit(limit int) *PipelineBuilder {
+	if limit <= 0 {
+		return pipelineBuilder
+	}
+
 	limitPipeline := Pipeline{
 		Type: "LIMIT",
-		Primitive: bson.D{
+		primitive: bson.D{
 			{
 				Key:   "$limit",
 				Value: limit,
@@ -237,20 +324,22 @@ func (pipelineBuilder *PipelineBuilder) Limit(limit int) *PipelineBuilder {
 		},
 	}
 
-	has, index := pipelineBuilder.Has("LIMIT")
+	has, index := pipelineBuilder.has("LIMIT")
 	if !has {
-		pipelineBuilder.Pipelines = append(pipelineBuilder.Pipelines, limitPipeline)
+		pipelineBuilder.pipelines = append(pipelineBuilder.pipelines, limitPipeline)
 	} else {
-		pipelineBuilder.Pipelines[index] = limitPipeline
+		pipelineBuilder.pipelines[index] = limitPipeline
 	}
 
 	return pipelineBuilder
 }
 
+// Adds a sort pipeline, this allows fields to be sorted, be wary of the order sort is placed
+// during the pipeline construction, this might impact the results
 func (pipelineBuilder *PipelineBuilder) Sort(fields interface{}) *PipelineBuilder {
 	sortPipeline := Pipeline{
 		Type: "SORT",
-		Primitive: bson.D{
+		primitive: bson.D{
 			{
 				Key:   "$sort",
 				Value: fields,
@@ -258,20 +347,61 @@ func (pipelineBuilder *PipelineBuilder) Sort(fields interface{}) *PipelineBuilde
 		},
 	}
 
-	has, index := pipelineBuilder.Has("SORT")
+	has, index := pipelineBuilder.has("SORT")
 	if !has {
-		pipelineBuilder.Pipelines = append(pipelineBuilder.Pipelines, sortPipeline)
+		pipelineBuilder.pipelines = append(pipelineBuilder.pipelines, sortPipeline)
 	} else {
-		pipelineBuilder.Pipelines[index] = sortPipeline
+		pipelineBuilder.pipelines[index] = sortPipeline
 	}
 
 	return pipelineBuilder
 }
 
-func (pipelineBuilder *PipelineBuilder) SortBy(field string, order MongoSort) *PipelineBuilder {
+// SortBy Adds a Sort pipeline using fields to sort, the order of the fields will be kept when building
+// the pipeline and any repeating field will only update the order
+func (pipelineBuilder *PipelineBuilder) SortBy(field string, order mongoSort) *PipelineBuilder {
+	has, index := pipelineBuilder.hasSortingField(field)
+	if !has {
+		sortedField := sortField{
+			field: field,
+			order: order,
+		}
+		pipelineBuilder.sortingFields = append(pipelineBuilder.sortingFields, sortedField)
+	} else {
+		pipelineBuilder.sortingFields[index].order = order
+	}
+
+	return pipelineBuilder
+}
+
+// SortAtEnd Adds a sort pipeline that runs at the very end of each pipeline, this is commonly used
+// for example during odata process where we might have a inner sorting but we want to sort it based
+// on that query
+func (pipelineBuilder *PipelineBuilder) SortAtEnd(fields interface{}) *PipelineBuilder {
 	sortPipeline := Pipeline{
-		Type: "SORT",
-		Primitive: bson.D{
+		Type: "SORT_AFTER",
+		primitive: bson.D{
+			{
+				Key:   "$sort",
+				Value: fields,
+			},
+		},
+	}
+
+	has, index := pipelineBuilder.has("SORT_AFTER")
+	if !has {
+		pipelineBuilder.pipelines = append(pipelineBuilder.pipelines, sortPipeline)
+	} else {
+		pipelineBuilder.pipelines[index] = sortPipeline
+	}
+
+	return pipelineBuilder
+}
+
+func (pipelineBuilder *PipelineBuilder) SortByAtEnd(field string, order mongoSort) *PipelineBuilder {
+	sortPipeline := Pipeline{
+		Type: "SORT_AFTER",
+		primitive: bson.D{
 			{
 				Key: "$sort",
 				Value: bson.D{
@@ -284,58 +414,11 @@ func (pipelineBuilder *PipelineBuilder) SortBy(field string, order MongoSort) *P
 		},
 	}
 
-	has, index := pipelineBuilder.Has("SORT")
+	has, index := pipelineBuilder.has("SORT_AFTER")
 	if !has {
-		pipelineBuilder.Pipelines = append(pipelineBuilder.Pipelines, sortPipeline)
+		pipelineBuilder.pipelines = append(pipelineBuilder.pipelines, sortPipeline)
 	} else {
-		pipelineBuilder.Pipelines[index] = sortPipeline
-	}
-
-	return pipelineBuilder
-}
-
-func (pipelineBuilder *PipelineBuilder) SortAfter(fields interface{}) *PipelineBuilder {
-	sortPipeline := Pipeline{
-		Type: "SORT_AFTER",
-		Primitive: bson.D{
-			{
-				Key:   "$sort",
-				Value: fields,
-			},
-		},
-	}
-
-	has, index := pipelineBuilder.Has("SORT_AFTER")
-	if !has {
-		pipelineBuilder.Pipelines = append(pipelineBuilder.Pipelines, sortPipeline)
-	} else {
-		pipelineBuilder.Pipelines[index] = sortPipeline
-	}
-
-	return pipelineBuilder
-}
-
-func (pipelineBuilder *PipelineBuilder) SortByAfter(field string, order MongoSort) *PipelineBuilder {
-	sortPipeline := Pipeline{
-		Type: "SORT_AFTER",
-		Primitive: bson.D{
-			{
-				Key: "$sort",
-				Value: bson.D{
-					{
-						Key:   field,
-						Value: order,
-					},
-				},
-			},
-		},
-	}
-
-	has, index := pipelineBuilder.Has("SORT_AFTER")
-	if !has {
-		pipelineBuilder.Pipelines = append(pipelineBuilder.Pipelines, sortPipeline)
-	} else {
-		pipelineBuilder.Pipelines[index] = sortPipeline
+		pipelineBuilder.pipelines[index] = sortPipeline
 	}
 
 	return pipelineBuilder
@@ -344,9 +427,9 @@ func (pipelineBuilder *PipelineBuilder) SortByAfter(field string, order MongoSor
 func (pipelineBuilder *PipelineBuilder) GetUserPipeline() *bson.A {
 	pipelines := bson.A{}
 	// Appending the user pipelines if they exist
-	for _, pipeline := range pipelineBuilder.Pipelines {
+	for _, pipeline := range pipelineBuilder.pipelines {
 		if pipeline.Type == "USER" {
-			pipelines = append(pipelines, pipeline.Primitive)
+			pipelines = append(pipelines, pipeline.primitive)
 		}
 	}
 
@@ -356,24 +439,24 @@ func (pipelineBuilder *PipelineBuilder) GetUserPipeline() *bson.A {
 func (pipelineBuilder *PipelineBuilder) GetUserPipelineWithCount() *bson.A {
 	pipelines := bson.A{}
 	// Appending the user pipelines if they exist
-	for _, pipeline := range pipelineBuilder.Pipelines {
+	for _, pipeline := range pipelineBuilder.pipelines {
 		if pipeline.Type == "USER" {
-			pipelines = append(pipelines, pipeline.Primitive)
+			pipelines = append(pipelines, pipeline.primitive)
 		}
 	}
 
 	// Appending Match  if it exists
-	for _, pipeline := range pipelineBuilder.Pipelines {
+	for _, pipeline := range pipelineBuilder.pipelines {
 		if pipeline.Type == "MATCH" {
-			pipelines = append(pipelines, pipeline.Primitive)
+			pipelines = append(pipelines, pipeline.primitive)
 			break
 		}
 	}
 
 	// Appending Match  if it exists
-	for _, pipeline := range pipelineBuilder.Pipelines {
+	for _, pipeline := range pipelineBuilder.pipelines {
 		if pipeline.Type == "PROJECT" {
-			pipelines = append(pipelines, pipeline.Primitive)
+			pipelines = append(pipelines, pipeline.primitive)
 			break
 		}
 	}
@@ -382,9 +465,9 @@ func (pipelineBuilder *PipelineBuilder) GetUserPipelineWithCount() *bson.A {
 	pipelineBuilder.getProjectedFieldsPipeline()
 
 	// Appending the count pipelines if they exist
-	for _, pipeline := range pipelineBuilder.Pipelines {
+	for _, pipeline := range pipelineBuilder.pipelines {
 		if pipeline.Type == "COUNT" {
-			pipelines = append(pipelines, pipeline.Primitive)
+			pipelines = append(pipelines, pipeline.primitive)
 			break
 		}
 	}
@@ -397,40 +480,40 @@ func (pipelineBuilder *PipelineBuilder) Get() *bson.A {
 	pipelineBuilder.getFilteredPipeline()
 
 	// Appending first the sort if it exists
-	for _, pipeline := range pipelineBuilder.Pipelines {
+	for _, pipeline := range pipelineBuilder.pipelines {
 		if pipeline.Type == "SORT" {
-			pipelines = append(pipelines, pipeline.Primitive)
+			pipelines = append(pipelines, pipeline.primitive)
 			break
 		}
 	}
 
 	// Appending the user pipelines if they exist
-	for _, pipeline := range pipelineBuilder.Pipelines {
+	for _, pipeline := range pipelineBuilder.pipelines {
 		if pipeline.Type == "USER" {
-			pipelines = append(pipelines, pipeline.Primitive)
+			pipelines = append(pipelines, pipeline.primitive)
 		}
 	}
 
 	// Appending first the sort if it exists
-	for _, pipeline := range pipelineBuilder.Pipelines {
+	for _, pipeline := range pipelineBuilder.pipelines {
 		if pipeline.Type == "SORT_AFTER" {
-			pipelines = append(pipelines, pipeline.Primitive)
+			pipelines = append(pipelines, pipeline.primitive)
 			break
 		}
 	}
 
 	// Appending Match  if it exists
-	for _, pipeline := range pipelineBuilder.Pipelines {
+	for _, pipeline := range pipelineBuilder.pipelines {
 		if pipeline.Type == "MATCH" {
-			pipelines = append(pipelines, pipeline.Primitive)
+			pipelines = append(pipelines, pipeline.primitive)
 			break
 		}
 	}
 
 	// Appending Match  if it exists
-	for _, pipeline := range pipelineBuilder.Pipelines {
+	for _, pipeline := range pipelineBuilder.pipelines {
 		if pipeline.Type == "PROJECT" {
-			pipelines = append(pipelines, pipeline.Primitive)
+			pipelines = append(pipelines, pipeline.primitive)
 			break
 		}
 	}
@@ -439,25 +522,25 @@ func (pipelineBuilder *PipelineBuilder) Get() *bson.A {
 	pipelineBuilder.getProjectedFieldsPipeline()
 
 	// Appending the skip pipelines if they exist
-	for _, pipeline := range pipelineBuilder.Pipelines {
+	for _, pipeline := range pipelineBuilder.pipelines {
 		if pipeline.Type == "SKIP" {
-			pipelines = append(pipelines, pipeline.Primitive)
+			pipelines = append(pipelines, pipeline.primitive)
 			break
 		}
 	}
 
 	// Appending the limit pipelines if they exist
-	for _, pipeline := range pipelineBuilder.Pipelines {
+	for _, pipeline := range pipelineBuilder.pipelines {
 		if pipeline.Type == "LIMIT" {
-			pipelines = append(pipelines, pipeline.Primitive)
+			pipelines = append(pipelines, pipeline.primitive)
 			break
 		}
 	}
 
 	// Appending the count pipelines if they exist
-	for _, pipeline := range pipelineBuilder.Pipelines {
+	for _, pipeline := range pipelineBuilder.pipelines {
 		if pipeline.Type == "COUNT" {
-			pipelines = append(pipelines, pipeline.Primitive)
+			pipelines = append(pipelines, pipeline.primitive)
 			break
 		}
 	}
@@ -465,20 +548,32 @@ func (pipelineBuilder *PipelineBuilder) Get() *bson.A {
 	return &pipelines
 }
 
-func (pipelineBuilder *PipelineBuilder) Aggregate(ctx context.Context, collection *mongo.Collection) (*mongo.Cursor, error) {
-	return collection.Aggregate(ctx, *pipelineBuilder.Get())
+func (pipelineBuilder *PipelineBuilder) Aggregate() (*mongoCursor, error) {
+	ctx := context.Background()
+	pipeline := pipelineBuilder.Get()
+	cursor, err := pipelineBuilder.collection.Aggregate(ctx, *pipeline)
+
+	return &mongoCursor{cursor: cursor}, err
 }
 
-func (pipelineBuilder *PipelineBuilder) AggregateUser(ctx context.Context, collection *mongo.Collection) (*mongo.Cursor, error) {
-	return collection.Aggregate(ctx, *pipelineBuilder.GetUserPipeline())
+func (pipelineBuilder *PipelineBuilder) AggregateUser() (*mongoCursor, error) {
+	ctx := context.Background()
+	pipeline := pipelineBuilder.GetUserPipeline()
+	cursor, err := pipelineBuilder.collection.Aggregate(ctx, *pipeline)
+
+	return &mongoCursor{cursor: cursor}, err
 }
 
-func (pipelineBuilder *PipelineBuilder) AggregateUserWithCount(ctx context.Context, collection *mongo.Collection) (*mongo.Cursor, error) {
-	return collection.Aggregate(ctx, *pipelineBuilder.GetUserPipelineWithCount())
+func (pipelineBuilder *PipelineBuilder) AggregateUserWithCount() (*mongoCursor, error) {
+	ctx := context.Background()
+	pipeline := pipelineBuilder.GetUserPipelineWithCount()
+	cursor, err := pipelineBuilder.collection.Aggregate(ctx, *pipeline)
+
+	return &mongoCursor{cursor: cursor}, err
 }
 
-func (pipelineBuilder *PipelineBuilder) Has(key string) (bool, int) {
-	for index, pipeline := range pipelineBuilder.Pipelines {
+func (pipelineBuilder *PipelineBuilder) has(key string) (bool, int) {
+	for index, pipeline := range pipelineBuilder.pipelines {
 		if strings.EqualFold(pipeline.Type, key) {
 			return true, index
 		}
@@ -488,8 +583,8 @@ func (pipelineBuilder *PipelineBuilder) Has(key string) (bool, int) {
 }
 
 func (pipelineBuilder *PipelineBuilder) hasFilteredField(fieldName string) (bool, int) {
-	for index, field := range pipelineBuilder.Filters {
-		if strings.EqualFold(field.Field, fieldName) {
+	for index, field := range pipelineBuilder.filters {
+		if strings.EqualFold(field.field, fieldName) {
 			return true, index
 		}
 	}
@@ -498,8 +593,18 @@ func (pipelineBuilder *PipelineBuilder) hasFilteredField(fieldName string) (bool
 }
 
 func (pipelineBuilder *PipelineBuilder) hasProjectedField(fieldName string) (bool, int) {
-	for index, field := range pipelineBuilder.ProjectedFields {
-		if strings.EqualFold(field.Field, fieldName) {
+	for index, field := range pipelineBuilder.projectedFields {
+		if strings.EqualFold(field.field, fieldName) {
+			return true, index
+		}
+	}
+
+	return false, -1
+}
+
+func (pipelineBuilder *PipelineBuilder) hasSortingField(fieldName string) (bool, int) {
+	for index, field := range pipelineBuilder.sortingFields {
+		if strings.EqualFold(field.field, fieldName) {
 			return true, index
 		}
 	}
@@ -508,20 +613,20 @@ func (pipelineBuilder *PipelineBuilder) hasProjectedField(fieldName string) (boo
 }
 
 func (pipelineBuilder *PipelineBuilder) getFilteredPipeline() bool {
-	if len(pipelineBuilder.Filters) == 0 {
+	if len(pipelineBuilder.filters) == 0 {
 		return false
 	}
 
 	fields := primitive.D{}
 
-	for _, filter := range pipelineBuilder.Filters {
+	for _, filter := range pipelineBuilder.filters {
 		primitiveField := bson.D{
 			{
-				Key: filter.Field,
+				Key: filter.field,
 				Value: bson.D{
 					{
 						Key:   "$regex",
-						Value: filter.Value,
+						Value: filter.value,
 					},
 					{
 						Key:   "$options",
@@ -532,9 +637,10 @@ func (pipelineBuilder *PipelineBuilder) getFilteredPipeline() bool {
 		}
 		fields = append(fields, primitiveField...)
 	}
+
 	matchPipeline := Pipeline{
 		Type: "MATCH",
-		Primitive: bson.D{
+		primitive: bson.D{
 			{
 				Key:   "$match",
 				Value: fields,
@@ -542,35 +648,35 @@ func (pipelineBuilder *PipelineBuilder) getFilteredPipeline() bool {
 		},
 	}
 
-	has, index := pipelineBuilder.Has("MATCH")
+	has, index := pipelineBuilder.has("MATCH")
 	if !has {
-		pipelineBuilder.Pipelines = append(pipelineBuilder.Pipelines, matchPipeline)
+		pipelineBuilder.pipelines = append(pipelineBuilder.pipelines, matchPipeline)
 	} else {
-		pipelineBuilder.Pipelines[index] = matchPipeline
+		pipelineBuilder.pipelines[index] = matchPipeline
 	}
 
 	return true
 }
 
 func (pipelineBuilder *PipelineBuilder) getProjectedFieldsPipeline() bool {
-	if len(pipelineBuilder.ProjectedFields) == 0 {
+	if len(pipelineBuilder.projectedFields) == 0 {
 		return false
 	}
 
 	fields := primitive.D{}
 
-	for _, projectedField := range pipelineBuilder.ProjectedFields {
+	for _, projectedField := range pipelineBuilder.projectedFields {
 		primitiveField := bson.D{
 			{
-				Key:   projectedField.Field,
-				Value: "'$" + projectedField.ProjectedAs + "'",
+				Key:   projectedField.field,
+				Value: "'$" + projectedField.projectedAs + "'",
 			},
 		}
 		fields = append(fields, primitiveField...)
 	}
 	projectPipeline := Pipeline{
 		Type: "PROJECT_FIELD",
-		Primitive: bson.D{
+		primitive: bson.D{
 			{
 				Key:   "$project",
 				Value: fields,
@@ -578,11 +684,11 @@ func (pipelineBuilder *PipelineBuilder) getProjectedFieldsPipeline() bool {
 		},
 	}
 
-	has, index := pipelineBuilder.Has("PROJECT_FIELD")
+	has, index := pipelineBuilder.has("PROJECT_FIELD")
 	if !has {
-		pipelineBuilder.Pipelines = append(pipelineBuilder.Pipelines, projectPipeline)
+		pipelineBuilder.pipelines = append(pipelineBuilder.pipelines, projectPipeline)
 	} else {
-		pipelineBuilder.Pipelines[index] = projectPipeline
+		pipelineBuilder.pipelines[index] = projectPipeline
 	}
 
 	return true

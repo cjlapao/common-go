@@ -9,29 +9,32 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-// GlobalFilterTokenizer the global filter tokenizer
-var globalFilterTokenizer = filterTokenizer()
-
-// GlobalFilterParser the global filter parser
-var globalFilterParser = filterParser()
-
 type FilterParser struct {
-	filter string
+	globalFilterTokenizer *parser.Tokenizer
+	globalFilterParser    *parser.Parser
+	filter                string
 }
 
-func NewFilterParser(filter string) FilterParser {
-	return FilterParser{
+// NewFilterParser Creates a nem Filter Parser from a odata type of query
+func NewFilterParser(filter string) *FilterParser {
+	result := FilterParser{
 		filter: filter,
 	}
+
+	result.globalFilterParser = result.filterParser()
+	result.globalFilterTokenizer = result.filterTokenizer()
+
+	return &result
 }
 
-func (filterParser FilterParser) Parse() (interface{}, error) {
-	parsedFilter, err := parseFilterString(filterParser.filter)
+// Parse Creates a MongoDB compatible filter from a odata type of query
+func (filterParser *FilterParser) Parse() (interface{}, error) {
+	parsedFilter, err := filterParser.parseFilterString(filterParser.filter)
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := applyFilter(parsedFilter)
+	result, err := ApplyFilter(parsedFilter)
 
 	if err != nil {
 		return nil, err
@@ -40,15 +43,15 @@ func (filterParser FilterParser) Parse() (interface{}, error) {
 	return result, nil
 }
 
-// ParseFilterString Converts an input string from the $filter part of the URL into a parse
-// tree that can be used by providers to create a response.
-func parseFilterString(filter string) (*parser.ParseNode, error) {
-	tokens, err := globalFilterTokenizer.Tokenize(filter)
+// parseFilterString Converts an input string from a base odata type of query into a parse
+// tree that can be used by providers to create a compatible mongodb filter query.
+func (fp FilterParser) parseFilterString(filter string) (*parser.ParseNode, error) {
+	tokens, err := fp.globalFilterTokenizer.Tokenize(filter)
 	if err != nil {
 		return nil, err
 	}
 
-	tree, err := globalFilterParser.Parse(tokens)
+	tree, err := fp.globalFilterParser.Parse(tokens)
 	if err != nil {
 		return nil, err
 	}
@@ -56,13 +59,13 @@ func parseFilterString(filter string) (*parser.ParseNode, error) {
 	return tree, nil
 }
 
-// FilterTokenizer Creates a tokenizer capable of tokenizing filter statements
-func filterTokenizer() *parser.Tokenizer {
+// filterTokenizer Creates a tokenizer capable of tokenizing filter statements
+func (fp *FilterParser) filterTokenizer() *parser.Tokenizer {
 	tokenizer := parser.Tokenizer{}
 	tokenizer.Add("^\\(", parser.FilterTokenOpenParen)
 	tokenizer.Add("^\\)", parser.FilterTokenCloseParen)
 	tokenizer.Add("^,", parser.FilterTokenComma)
-	tokenizer.Add("^(eq|ne|gt|ge|lt|le|and|or) ", parser.FilterTokenLogical)
+	tokenizer.Add("^(eq|ne|gt|ge|lt|le|and|or|regex) ", parser.FilterTokenLogical)
 	tokenizer.Add("^(contains|endswith|startswith)", parser.FilterTokenFunc)
 	tokenizer.Add("^-?[0-9]+\\.[0-9]+", parser.FilterTokenFloat)
 	tokenizer.Add("^-?[0-9]+", parser.FilterTokenInteger)
@@ -75,12 +78,14 @@ func filterTokenizer() *parser.Tokenizer {
 	tokenizer.Add("^_id", parser.FilterTokenLiteral)
 	tokenizer.Ignore("^ ", parser.FilterTokenWhitespace)
 
-	return &tokenizer
+	fp.globalFilterTokenizer = &tokenizer
+	return fp.globalFilterTokenizer
 }
 
-// FilterParser creates the definitions for operators and functions
-func filterParser() *parser.Parser {
+// filterParser creates the definitions for operators and functions
+func (fp *FilterParser) filterParser() *parser.Parser {
 	filterParser := parser.EmptyParser()
+	filterParser.DefineOperator("regex", 2, parser.OpAssociationLeft, 4)
 	filterParser.DefineOperator("gt", 2, parser.OpAssociationLeft, 4)
 	filterParser.DefineOperator("ge", 2, parser.OpAssociationLeft, 4)
 	filterParser.DefineOperator("lt", 2, parser.OpAssociationLeft, 4)
@@ -93,10 +98,11 @@ func filterParser() *parser.Parser {
 	filterParser.DefineFunction("endswith", 2)
 	filterParser.DefineFunction("startswith", 2)
 
-	return filterParser
+	fp.globalFilterParser = filterParser
+	return fp.globalFilterParser
 }
 
-func (filterParser FilterParser) applyFilter(node *parser.ParseNode) (bson.M, error) {
+func ApplyFilter(node *parser.ParseNode) (bson.M, error) {
 
 	filter := make(bson.M)
 
@@ -170,23 +176,34 @@ func (filterParser FilterParser) applyFilter(node *parser.ParseNode) (bson.M, er
 			}
 			filter[node.Children[0].Token.Value.(string)] = value
 
+		case "regex":
+			// Escape single quotes in the case of strings
+			if _, valueOk := node.Children[1].Token.Value.(string); valueOk {
+				node.Children[1].Token.Value = strings.Replace(node.Children[1].Token.Value.(string), "'", "", -1)
+			}
+			value := bson.M{"$regex": node.Children[1].Token.Value, "$options": "i"}
+			if _, ok := node.Children[0].Token.Value.(string); !ok {
+				return nil, ErrInvalidInput
+			}
+			filter[node.Children[0].Token.Value.(string)] = value
+
 		case "and":
-			leftFilter, err := applyFilter(node.Children[0]) // Left children
+			leftFilter, err := ApplyFilter(node.Children[0]) // Left children
 			if err != nil {
 				return nil, err
 			}
-			rightFilter, _ := applyFilter(node.Children[1]) // Right children
+			rightFilter, _ := ApplyFilter(node.Children[1]) // Right children
 			if err != nil {
 				return nil, err
 			}
 			filter["$and"] = []bson.M{leftFilter, rightFilter}
 
 		case "or":
-			leftFilter, err := applyFilter(node.Children[0]) // Left children
+			leftFilter, err := ApplyFilter(node.Children[0]) // Left children
 			if err != nil {
 				return nil, err
 			}
-			rightFilter, err := applyFilter(node.Children[1]) // Right children
+			rightFilter, err := ApplyFilter(node.Children[1]) // Right children
 			if err != nil {
 				return nil, err
 			}

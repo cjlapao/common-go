@@ -11,6 +11,7 @@ import (
 )
 
 type MongoRepository interface {
+	Pipeline() *PipelineBuilder
 	Find(filter interface{}) (*mongoCursor, error)
 	FindBy(fieldName string, value interface{}) (*mongoCursor, error)
 	FindOne(fieldName string, value string) *mongoSingleResult
@@ -51,6 +52,10 @@ func (mongoFactory *MongoFactory) NewDatabaseRepository(database string, collect
 	defaultRepo.Collection = mongoFactory.GetCollection(collection)
 
 	return &defaultRepo
+}
+
+func (repository *MongoDefaultRepository) Pipeline() *PipelineBuilder {
+	return NewPipelineBuilder(repository.Collection)
 }
 
 func (repository *MongoDefaultRepository) Find(filter interface{}) (*mongoCursor, error) {

@@ -20,7 +20,6 @@ const (
 )
 
 // ParseURLValues parses url values in odata format into a map of interfaces for the DB adapters to translate
-//nolint :gocyclo
 func ParseURLValues(query url.Values) (map[string]interface{}, error) {
 	result := make(map[string]interface{})
 	var parseErrors []string
