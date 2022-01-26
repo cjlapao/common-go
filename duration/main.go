@@ -16,10 +16,11 @@ var (
 	// ErrBadFormat is returned when parsing fails
 	ErrBadFormat = errors.New("bad format string")
 
-	// ErrNoMonth is raised when a month is in the format string
-	ErrNoMonth = errors.New("no months allowed")
+	ErrWeeksNotWithYearsOrMonth = errors.New("weeks are not allowed with years or months")
 
-	tmpl = template.Must(template.New("duration").Parse(`P{{if .Years}}{{.Years}}Y{{end}}{{if .Weeks}}{{.Weeks}}W{{end}}{{if .Days}}{{.Days}}D{{end}}{{if .HasTimePart}}T{{end }}{{if .Hours}}{{.Hours}}H{{end}}{{if .Minutes}}{{.Minutes}}M{{end}}{{if .Seconds}}{{.Seconds}}S{{end}}`))
+	ErrMonthsInDurationUseOverload = errors.New("months are not allowed with the ToDuration method, use the overload instead")
+
+	tmpl = template.Must(template.New("duration").Parse(`P{{if .Years}}{{.Years}}Y{{end}}{{if .Months}}{{.Months}}M{{end}}{{if .Weeks}}{{.Weeks}}W{{end}}{{if .Days}}{{.Days}}D{{end}}{{if .HasTimePart}}T{{end }}{{if .Hours}}{{.Hours}}H{{end}}{{if .Minutes}}{{.Minutes}}M{{end}}{{if .Seconds}}{{.Seconds}}S{{end}}`))
 
 	full = regexp.MustCompile(`P((?P<year>\d+)Y)?((?P<month>\d+)M)?((?P<day>\d+)D)?(T((?P<hour>\d+)H)?((?P<minute>\d+)M)?((?P<second>\d+(?:\.\d+))S)?)?`)
 	week = regexp.MustCompile(`P((?P<week>\d+)W)`)
@@ -27,6 +28,7 @@ var (
 
 type Duration struct {
 	Years        int
+	Months       int
 	Weeks        int
 	Days         int
 	Hours        int
@@ -67,7 +69,7 @@ func FromString(dur string) (*Duration, error) {
 		case "year":
 			d.Years = int(val)
 		case "month":
-			return nil, ErrNoMonth
+			d.Months = int(val)
 		case "week":
 			d.Weeks = int(val)
 		case "day":
@@ -90,15 +92,17 @@ func FromString(dur string) (*Duration, error) {
 	return d, nil
 }
 
-// String prints out the value passed in. It's not strictly according to the
-// ISO spec, but it's pretty close. It would need to disallow weeks mingling with
-// other units.
+// String prints out the value passed in.
 func (d *Duration) String() string {
 	var s bytes.Buffer
 
-	d.Normalize()
+	err := d.Normalize()
 
-	err := tmpl.Execute(&s, d)
+	if err != nil {
+		panic(err)
+	}
+
+	err = tmpl.Execute(&s, d)
 	if err != nil {
 		panic(err)
 	}
@@ -109,12 +113,14 @@ func (d *Duration) String() string {
 // Normalize makes sure that all fields are represented as the smallest meaningful value possible by dividing them out by the conversion factor to the larger unit.
 // e.g. if you have a duration of 10 day, 25 hour, and 61 minute, it will be normalized to 1 week 5 days, 2 hours, and 1 minute.
 // this function does not normalize days to months, weeks to months or weeks to years as they do not always convert with the same value.
-func (d *Duration) Normalize() {
+// it also won't normalize days to weeks if months or years are present, and will return an error if the value is invalid
+func (d *Duration) Normalize() error {
 	msToS := 1000
 	StoM := 60
 	MtoH := 60
 	HtoD := 24
 	DtoW := 7
+	MtoY := 12
 	if d.MilliSeconds >= msToS {
 		d.Seconds += d.MilliSeconds / msToS
 		d.MilliSeconds %= msToS
@@ -131,11 +137,20 @@ func (d *Duration) Normalize() {
 		d.Days += d.Hours / HtoD
 		d.Hours %= HtoD
 	}
-	if d.Days >= DtoW {
+	if d.Days >= DtoW && d.Months == 0 && d.Years == 0 {
 		d.Weeks += d.Days / DtoW
 		d.Days %= DtoW
 	}
-	//TODO convert 12 months to 1 year when month is supported
+	if d.Months > MtoY {
+		d.Years += d.Months / MtoY
+		d.Months %= MtoY
+	}
+
+	if d.Weeks != 0 && (d.Years != 0 || d.Months != 0) {
+		return ErrWeeksNotWithYearsOrMonth
+	}
+
+	return nil
 	// a month is not always 30 days, so we don't normalize that
 	// a month is not always 4 weeks, so we don't normalize that
 	// a year is not always 52 weeks, so we don't normalize that
@@ -145,19 +160,32 @@ func (d *Duration) HasTimePart() bool {
 	return d.Hours != 0 || d.Minutes != 0 || d.Seconds != 0
 }
 
-func (d *Duration) ToDuration() time.Duration {
+func (d *Duration) ToDuration() (time.Duration, error) {
+	if d.Months != 0 {
+		return 0, ErrMonthsInDurationUseOverload
+	}
+	return d.ToDurationWithMonths(31)
+}
+
+func (d *Duration) ToDurationWithMonths(daysInAMonth int) (time.Duration, error) {
 	day := time.Hour * 24
 	year := day * 365
+	month := day * time.Duration(daysInAMonth)
 
 	tot := time.Duration(0)
 
-	d.Normalize()
+	err := d.Normalize()
+	if err != nil {
+		return tot, err
+	}
+
 	tot += year * time.Duration(d.Years)
+	tot += month * time.Duration(d.Months)
 	tot += day * 7 * time.Duration(d.Weeks)
 	tot += day * time.Duration(d.Days)
 	tot += time.Hour * time.Duration(d.Hours)
 	tot += time.Minute * time.Duration(d.Minutes)
 	tot += time.Second * time.Duration(d.Seconds)
 
-	return tot
+	return tot, nil
 }
