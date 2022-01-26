@@ -9,6 +9,27 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+type filter struct {
+	field     string
+	operation filterOperation
+	value     interface{}
+}
+
+type filterOperation string
+
+const (
+	GreaterThan        filterOperation = "gt"
+	GreaterOrEqualThan filterOperation = "ge"
+	LowerThan          filterOperation = "lt"
+	LowerOrEqualThan   filterOperation = "le"
+	Equal              filterOperation = "eq"
+	NotEqual           filterOperation = "ne"
+	Contains           filterOperation = "contains"
+	StartsWith         filterOperation = "startswith"
+	EndsWith           filterOperation = "endswith"
+	RegEx              filterOperation = "regex"
+)
+
 type FilterParser struct {
 	globalFilterTokenizer *parser.Tokenizer
 	globalFilterParser    *parser.Parser
@@ -181,7 +202,12 @@ func ApplyFilter(node *parser.ParseNode) (bson.M, error) {
 			if _, valueOk := node.Children[1].Token.Value.(string); valueOk {
 				node.Children[1].Token.Value = strings.Replace(node.Children[1].Token.Value.(string), "'", "", -1)
 			}
-			value := bson.M{"$regex": node.Children[1].Token.Value, "$options": "i"}
+			// value := bson.M{"$regex": node.Children[1].Token.Value, "$options": "i"}
+			value := primitive.Regex{
+				Pattern: node.Children[1].Token.Value.(string),
+				Options: "gi",
+			}
+
 			if _, ok := node.Children[0].Token.Value.(string); !ok {
 				return nil, ErrInvalidInput
 			}
