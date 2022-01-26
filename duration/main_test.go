@@ -84,7 +84,7 @@ func TestItNormalizesD(t *testing.T) {
 func TestItDoesntNormalizesW(t *testing.T) {
 	// Arrange
 	duration := &Duration{
-		Days: 56,
+		Weeks: 56,
 	}
 
 	// Act
