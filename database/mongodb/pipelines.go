@@ -12,8 +12,9 @@ import (
 )
 
 type Pipeline struct {
-	pipelineType pipelineType
-	primitive    primitive.D
+	executionOrder int
+	pipelineType   pipelineType
+	primitive      primitive.D
 }
 
 type projectField struct {
@@ -36,15 +37,18 @@ const (
 type pipelineType int
 
 const (
-	User pipelineType = iota
+	Custom pipelineType = iota
 	Count
 	Match
+	MatchField
 	Project
 	ProjectField
 	Skip
 	Limit
 	Sort
+	SortField
 	SortAfter
+	SortAfterField
 )
 
 func (s pipelineType) String() string {
@@ -56,26 +60,33 @@ func (s pipelineType) FromString(key string) pipelineType {
 }
 
 var toPipelineTypeString = map[pipelineType]string{
-	Count:        "COUNT",
-	Limit:        "LIMIT",
-	Match:        "MATCH",
-	Project:      "PROJECT",
-	ProjectField: "PROJECT_FIELD",
-	Skip:         "SKIP",
-	Sort:         "SORT",
-	SortAfter:    "SORT_AFTER",
-	User:         "USER",
+	Count:          "COUNT",
+	Limit:          "LIMIT",
+	Match:          "MATCH",
+	MatchField:     "MATCH_FIELD",
+	Project:        "PROJECT",
+	ProjectField:   "PROJECT_FIELD",
+	Skip:           "SKIP",
+	Sort:           "SORT",
+	SortField:      "SORT_FIELD",
+	SortAfter:      "SORT_AFTER",
+	SortAfterField: "SORT_AFTER_FIELD",
+	Custom:         "Custom",
 }
 
 var toPipelineTypeID = map[string]pipelineType{
-	"COUNT":      Count,
-	"LIMIT":      Limit,
-	"MATCH":      Match,
-	"PROJECT":    Project,
-	"SKIP":       Skip,
-	"SORT":       Sort,
-	"SORT_AFTER": SortAfter,
-	"USER":       User,
+	"COUNT":            Count,
+	"LIMIT":            Limit,
+	"MATCH":            Match,
+	"MATCH_FIELD":      MatchField,
+	"PROJECT":          Project,
+	"PROJECT_FIELD":    ProjectField,
+	"SKIP":             Skip,
+	"SORT":             Sort,
+	"SORT_FIELD":       SortField,
+	"SORT_AFTER":       SortAfter,
+	"SORT_AFTER_FIELD": SortAfterField,
+	"Custom":           Custom,
 }
 
 type PipelineOptions struct {
@@ -121,7 +132,7 @@ func NewEmptyPipeline(collection *mongoCollection) *PipelineBuilder {
 // Add Adds a user custom pipeline to the builder, this can be any valid mongo pipeline
 func (pipelineBuilder *PipelineBuilder) Add(pipeline bson.D) *PipelineBuilder {
 	pipelineEntry := Pipeline{
-		pipelineType: User,
+		pipelineType: Custom,
 		primitive:    pipeline,
 	}
 
@@ -567,7 +578,7 @@ func (pipelineBuilder *PipelineBuilder) buildPipeline(options ...PipelineOptions
 	if builderOptions.IncludeUser {
 		// Appending the user pipelines if they exist
 		for _, pipeline := range pipelineBuilder.pipelines {
-			if pipeline.pipelineType == User {
+			if pipeline.pipelineType == Custom {
 				pipelines = append(pipelines, pipeline.primitive)
 			}
 		}
