@@ -55,7 +55,7 @@ func (mongoFactory *MongoFactory) NewDatabaseRepository(database string, collect
 }
 
 func (repository *MongoDefaultRepository) Pipeline() *PipelineBuilder {
-	return NewPipelineBuilder(repository.Collection)
+	return NewEmptyPipeline(repository.Collection)
 }
 
 func (repository *MongoDefaultRepository) Find(filter interface{}) (*mongoCursor, error) {

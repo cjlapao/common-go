@@ -30,17 +30,25 @@ type MongoCollectionClient interface {
 }
 
 type mongoClient struct {
-	cl *mongo.Client
+	factory *MongoFactory
+	cl      *mongo.Client
 }
 
 type mongoDatabase struct {
-	name string
-	db   *mongo.Database
+	name    string
+	factory *MongoFactory
+	db      *mongo.Database
 }
 
 type mongoCollection struct {
-	name string
-	coll *mongo.Collection
+	name    string
+	factory *MongoFactory
+	coll    *mongo.Collection
+}
+
+// Repository Gets the repository for this collection
+func (collection mongoCollection) Repository() MongoRepository {
+	return collection.factory.NewRepository(collection.name)
 }
 
 type mongoSession struct {
@@ -134,7 +142,10 @@ func (f *MongoFactory) GetClient() *mongoClient {
 		return nil
 	}
 
-	f.Client = &mongoClient{cl: client}
+	f.Client = &mongoClient{
+		factory: f,
+		cl:      client,
+	}
 
 	f.Logger.Debug("Client connection created successfully")
 	return f.Client
@@ -154,7 +165,11 @@ func (f *MongoFactory) GetDatabase(databaseName string) *mongoDatabase {
 	}
 
 	f.DatabaseContext.CurrentDatabaseName = databaseName
-	f.Database = &mongoDatabase{db: database, name: databaseName}
+	f.Database = &mongoDatabase{
+		factory: f,
+		db:      database,
+		name:    databaseName,
+	}
 
 	f.Logger.Debug("Database was retrieved successfully")
 	return f.Database
@@ -179,7 +194,11 @@ func (f *MongoFactory) GetCollection(collectionName string) *mongoCollection {
 
 	f.DatabaseContext.CurrentCollection = collectionName
 	f.Logger.Debug("Collection was retrieved successfully")
-	return &mongoCollection{coll: collection, name: collectionName}
+	return &mongoCollection{
+		factory: f,
+		coll:    collection,
+		name:    collectionName,
+	}
 }
 
 // StartSession Starts a session in the mongodb client

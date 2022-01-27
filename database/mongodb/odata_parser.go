@@ -47,7 +47,7 @@ func (odataParser *ODataParser) GetODataResponse(query url.Values) (*models.ODat
 	// Checks if the count flag is true and count the collection records
 	if count, ok := queryMap[odata.Count].(bool); ok {
 		if count {
-			builder := NewPipelineBuilder(odataParser.Collection)
+			builder := NewEmptyPipeline(odataParser.Collection)
 			countField := builder.CountCollection()
 			response.Count = countField
 		}
@@ -92,7 +92,7 @@ func (odataParser *ODataParser) Decode(query url.Values, destination interface{}
 // Query creates a mongo query based on odata parameters
 // returns a cursor ready to be iterated or an error if something goes wrong
 func (odataParser *ODataParser) Query(query url.Values) (*mongoCursor, error) {
-	builder := NewPipelineBuilder(odataParser.Collection)
+	builder := NewEmptyPipeline(odataParser.Collection)
 
 	// Parse url values
 	queryMap, err := odata.ParseURLValues(query)
