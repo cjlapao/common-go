@@ -51,6 +51,11 @@ func (collection mongoCollection) Repository() MongoRepository {
 	return collection.factory.NewRepository(collection.name)
 }
 
+// Repository Gets the repository for this collection
+func (collection mongoCollection) OData() *ODataParser {
+	return EmptyODataParser(&collection)
+}
+
 type mongoSession struct {
 	mongo.Session
 }

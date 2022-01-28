@@ -11,6 +11,7 @@ import (
 )
 
 type MongoRepository interface {
+	OData() *ODataParser
 	Pipeline() *PipelineBuilder
 	Find(filter interface{}) (*mongoCursor, error)
 	FindBy(fieldName string, value interface{}) (*mongoCursor, error)
@@ -56,6 +57,10 @@ func (mongoFactory *MongoFactory) NewDatabaseRepository(database string, collect
 
 func (repository *MongoDefaultRepository) Pipeline() *PipelineBuilder {
 	return NewEmptyPipeline(repository.Collection)
+}
+
+func (repository *MongoDefaultRepository) OData() *ODataParser {
+	return EmptyODataParser(repository.Collection)
 }
 
 func (repository *MongoDefaultRepository) Find(filter interface{}) (*mongoCursor, error) {
