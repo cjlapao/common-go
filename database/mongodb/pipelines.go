@@ -3,7 +3,6 @@ package mongodb
 //TODO: Implement a more dynamic way of building the pipes
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strings"
 
@@ -772,28 +771,7 @@ func (pipelineBuilder *PipelineBuilder) getFilteredPipeline() bool {
 
 	var stringFilter string
 	for _, filter := range pipelineBuilder.filters {
-		switch filter.operation {
-		case "gt":
-			stringFilter = fmt.Sprintf("%v gt '%v'", filter.field, filter.value)
-		case "ge":
-			stringFilter = fmt.Sprintf("%v ge '%v'", filter.field, filter.value)
-		case "lt":
-			stringFilter = fmt.Sprintf("%v lt '%v'", filter.field, filter.value)
-		case "le":
-			stringFilter = fmt.Sprintf("%v le '%v'", filter.field, filter.value)
-		case "eq":
-			stringFilter = fmt.Sprintf("%v eq '%v'", filter.field, filter.value)
-		case "ne":
-			stringFilter = fmt.Sprintf("%v ne '%v'", filter.field, filter.value)
-		case "regex":
-			stringFilter = fmt.Sprintf("%v regex %v", filter.field, filter.value)
-		case "contains":
-			stringFilter = fmt.Sprintf("contains(%v, '%v')", filter.field, filter.value)
-		case "endswith":
-			stringFilter = fmt.Sprintf("endswith(%v, '%v')", filter.field, filter.value)
-		case "startswith":
-			stringFilter = fmt.Sprintf("startswith(%v, '%v')", filter.field, filter.value)
-		}
+		stringFilter = getOperationString(filter.field, filter.operation, filter.value)
 
 		filterParser := NewFilterParser(stringFilter)
 		parsedFilter, err := filterParser.Parse()

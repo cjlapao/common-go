@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"encoding/hex"
+	"fmt"
 	"strings"
 
 	"github.com/cjlapao/common-go/parser"
@@ -276,4 +277,31 @@ func ApplyFilter(node *parser.ParseNode) (bson.M, error) {
 		}
 	}
 	return filter, nil
+}
+
+func getOperationString(field string, operation filterOperation, value interface{}) string {
+	switch operation {
+	case "gt":
+		return fmt.Sprintf("%v gt '%v'", field, value)
+	case "ge":
+		return fmt.Sprintf("%v ge '%v'", field, value)
+	case "lt":
+		return fmt.Sprintf("%v lt '%v'", field, value)
+	case "le":
+		return fmt.Sprintf("%v le '%v'", field, value)
+	case "eq":
+		return fmt.Sprintf("%v eq '%v'", field, value)
+	case "ne":
+		return fmt.Sprintf("%v ne '%v'", field, value)
+	case "regex":
+		return fmt.Sprintf("%v regex %v", field, value)
+	case "contains":
+		return fmt.Sprintf("contains(%v, '%v')", field, value)
+	case "endswith":
+		return fmt.Sprintf("endswith(%v, '%v')", field, value)
+	case "startswith":
+		return fmt.Sprintf("startswith(%v, '%v')", field, value)
+	default:
+		return fmt.Sprintf("%v eq '%v'", field, value)
+	}
 }

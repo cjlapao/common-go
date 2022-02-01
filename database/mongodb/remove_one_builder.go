@@ -18,7 +18,11 @@ func NewRemoveOneBuilder() *RemoveOneBuilder {
 }
 
 func (c *RemoveOneBuilder) FilterBy(key string, value interface{}) *RemoveOneBuilder {
-	element := BuilderElement{key, value}
+	element := BuilderElement{
+		FilterOperation,
+		key,
+		Equal,
+		value}
 	c.Filter = append(c.Filter, element)
 	return c
 }
@@ -33,8 +37,8 @@ func (c *RemoveOneBuilder) Build() mongo.DeleteOneModel {
 
 		for _, filterElement := range c.Filter {
 			bsonElement := primitive.E{
-				Key:   filterElement.Key,
-				Value: filterElement.Value,
+				Key:   filterElement.key,
+				Value: filterElement.value,
 			}
 
 			filterPrimitives = append(filterPrimitives, bsonElement)

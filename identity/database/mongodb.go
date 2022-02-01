@@ -38,7 +38,7 @@ func (u MongoDBContextAdapter) UpsertUser(user models.User) {
 	if user.IsValid() {
 		repo := getMongoDBTenantRepository()
 		logger.Info("Upserting user %v into database %v", currentDatabase)
-		builder := mongodb.NewUpdateOneBuilder().FilterBy("_id", user.ID).Encode(user).Build()
+		builder := mongodb.NewUpdateOneModelBuilder().FilterBy("_id", mongodb.Equal, user.ID).Encode(user).Build()
 		result := repo.UpsertOne(builder)
 		if result.MatchedCount <= 0 {
 			logger.Error("There was an error upserting user %v", user.Email)
@@ -76,7 +76,7 @@ func (u MongoDBContextAdapter) UpdateUserRefreshToken(id string, token string) b
 	if user != nil {
 		user.RefreshToken = token
 		repo := getMongoDBTenantRepository()
-		builder := mongodb.NewUpdateOneBuilder().FilterBy("_id", id).Encode(user).Build()
+		builder := mongodb.NewUpdateOneModelBuilder().FilterBy("_id", mongodb.Equal, id).Encode(user).Build()
 		result := repo.UpsertOne(builder)
 		if result.MatchedCount == 0 && result.ModifiedCount == 0 && result.UpsertedCount == 0 {
 			logger.Error("There was an error updating the refresh token for user with id %v", id)
@@ -102,7 +102,7 @@ func (u MongoDBContextAdapter) UpdateUserEmailVerifyToken(id string, token strin
 	if user != nil {
 		user.EmailVerifyToken = token
 		repo := getMongoDBTenantRepository()
-		builder := mongodb.NewUpdateOneBuilder().FilterBy("_id", id).Encode(user).Build()
+		builder := mongodb.NewUpdateOneModelBuilder().FilterBy("_id", mongodb.Equal, id).Encode(user).Build()
 		result := repo.UpsertOne(builder)
 		if result.MatchedCount <= 0 {
 			logger.Error("There was an error updating the verify email token for user with id %v", id)

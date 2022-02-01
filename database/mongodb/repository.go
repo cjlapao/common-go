@@ -2,6 +2,7 @@ package mongodb
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/cjlapao/common-go/guard"
@@ -55,10 +56,12 @@ func (mongoFactory *MongoFactory) NewDatabaseRepository(database string, collect
 	return &defaultRepo
 }
 
+// Pipeline Creates an empty pipeline for querying mongodb
 func (repository *MongoDefaultRepository) Pipeline() *PipelineBuilder {
 	return NewEmptyPipeline(repository.Collection)
 }
 
+// OData Creates an OData parser to return data
 func (repository *MongoDefaultRepository) OData() *ODataParser {
 	return EmptyODataParser(repository.Collection)
 }
@@ -174,8 +177,9 @@ func (r *MongoDefaultRepository) InsertMany(elements []interface{}) *mongo.Inser
 func (r *MongoDefaultRepository) UpsertOne(model mongo.UpdateOneModel) *mongo.UpdateResult {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
 	options := options.Update().SetUpsert(true)
+	t, _ := bson.MarshalExtJSON(model.Update, false, false)
+	fmt.Printf("%v", string(t))
 	updateOneResult, err := r.Collection.coll.UpdateOne(ctx, model.Filter, model.Update, options)
 
 	if err != nil {
