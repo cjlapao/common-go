@@ -1,5 +1,9 @@
 package mongodb
 
+import "errors"
+
+var ErrNoElements = errors.New("no elements to process")
+
 type elementBuilderOperation int
 
 const (
@@ -9,9 +13,15 @@ const (
 	FilterOperation
 )
 
-type BuilderElement struct {
+type builderElement struct {
 	operation       elementBuilderOperation
 	key             string
 	filterOperation filterOperation
 	value           interface{}
 }
+
+type BuilderOptions int
+
+const (
+	UpsertBuildOption BuilderOptions = 1
+)

@@ -72,8 +72,9 @@ func (c *MemoryUserContextAdapter) GetUserByUsername(username string) *models.Us
 	return nil
 }
 
-func (c *MemoryUserContextAdapter) UpsertUser(user models.User) {
+func (c *MemoryUserContextAdapter) UpsertUser(user models.User) error {
 	c.Users = append(c.Users, user)
+	return nil
 }
 
 func (u MemoryUserContextAdapter) RemoveUser(id string) bool {

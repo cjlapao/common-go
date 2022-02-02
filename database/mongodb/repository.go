@@ -2,10 +2,8 @@ package mongodb
 
 import (
 	"context"
-	"fmt"
 	"time"
 
-	"github.com/cjlapao/common-go/guard"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -15,13 +13,16 @@ type MongoRepository interface {
 	OData() *ODataParser
 	Pipeline() *PipelineBuilder
 	Find(filter interface{}) (*mongoCursor, error)
-	FindBy(fieldName string, value interface{}) (*mongoCursor, error)
+	FindBy(filter string) (*mongoCursor, error)
+	FindFieldBy(fieldName string, operation filterOperation, value interface{}) (*mongoCursor, error)
+
 	FindOne(fieldName string, value string) *mongoSingleResult
 	InsertOne(element interface{}) *mongo.InsertOneResult
 	InsertMany(elements []interface{}) *mongo.InsertManyResult
-	UpsertOne(model mongo.UpdateOneModel) *mongo.UpdateResult
-	UpsertMany(filter interface{}, elements []interface{}) *mongo.UpdateResult
-	DeleteOne(model mongo.DeleteOneModel) *mongo.DeleteResult
+	UpsertOne(model *MongoUpdateOneModel) *mongo.UpdateResult
+	UpdateMany(models ...*MongoUpdateOneModel) (*mongo.BulkWriteResult, error)
+	UpsertMany(models ...*MongoUpdateOneModel) (*mongo.BulkWriteResult, error)
+	DeleteOne(model *MongoDeleteOneModel) *mongo.DeleteResult
 }
 
 type MongoDefaultRepository struct {
@@ -66,18 +67,32 @@ func (repository *MongoDefaultRepository) OData() *ODataParser {
 	return EmptyODataParser(repository.Collection)
 }
 
+// Find finds records with a filter and returns a cursor to iterate trough them
+//
+// Example:
+//		repository.Find(bson.M{"userId", "someId"})
+//
+// You can also use a string query similar to odata
+//
+// for example
+//		repository.Find("userId eq 'someId'")
+//
+// or a function like startswith
+// 		repository.Find("startswith(userId, 'someId'")
 func (repository *MongoDefaultRepository) Find(filter interface{}) (*mongoCursor, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	var filterToApply interface{}
 
 	if stringFilter, ok := filter.(string); ok {
 		if filter == "" {
-			filter = bson.D{{}}
+			filter = bson.D{}
 		} else {
 			processedFilter, err := NewFilterParser(stringFilter).Parse()
 			if err != nil {
 				logger.Error("There was an error applying the filter, %v", err.Error())
-				filterToApply = bson.D{{}}
+				return nil, err
 			} else {
 				filterToApply = processedFilter
 			}
@@ -86,14 +101,22 @@ func (repository *MongoDefaultRepository) Find(filter interface{}) (*mongoCursor
 		filterToApply = filter
 	}
 
-	defer cancel()
-
 	cur, err := repository.Collection.coll.Find(ctx, filterToApply)
 
 	return &mongoCursor{cursor: cur}, err
 }
 
-func (r *MongoDefaultRepository) FindBy(fieldName string, value interface{}) (*mongoCursor, error) {
+// Find finds records with a filter and returns a cursor to iterate trough them
+// You can also use a string query similar to odata, for example
+//		repository.Find("userId eq 'someId'")
+//
+// or a function like startswith
+// 		repository.Find("startswith(userId, 'someId'")
+func (r *MongoDefaultRepository) FindBy(filter string) (*mongoCursor, error) {
+	return r.Find(filter)
+}
+
+func (r *MongoDefaultRepository) FindFieldBy(fieldName string, operation filterOperation, value interface{}) (*mongoCursor, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
 	var filter interface{}
@@ -174,12 +197,10 @@ func (r *MongoDefaultRepository) InsertMany(elements []interface{}) *mongo.Inser
 	return insertResult
 }
 
-func (r *MongoDefaultRepository) UpsertOne(model mongo.UpdateOneModel) *mongo.UpdateResult {
+func (r *MongoDefaultRepository) UpdateOne(model *MongoUpdateOneModel) *mongo.UpdateResult {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	options := options.Update().SetUpsert(true)
-	t, _ := bson.MarshalExtJSON(model.Update, false, false)
-	fmt.Printf("%v", string(t))
+	options := options.Update().SetUpsert(*model.model.Upsert)
 	updateOneResult, err := r.Collection.coll.UpdateOne(ctx, model.Filter, model.Update, options)
 
 	if err != nil {
@@ -190,16 +211,11 @@ func (r *MongoDefaultRepository) UpsertOne(model mongo.UpdateOneModel) *mongo.Up
 	return updateOneResult
 }
 
-func (r *MongoDefaultRepository) UpsertMany(filter interface{}, elements []interface{}) *mongo.UpdateResult {
+func (r *MongoDefaultRepository) UpsertOne(model *MongoUpdateOneModel) *mongo.UpdateResult {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if guard.IsNill(filter) {
-		filter = bson.D{{}}
-	}
-
 	options := options.Update().SetUpsert(true)
-
-	updateOneResult, err := r.Collection.coll.UpdateMany(ctx, filter, elements, options)
+	updateOneResult, err := r.Collection.coll.UpdateOne(ctx, model.Filter, model.Update, options)
 
 	if err != nil {
 		logger.LogError(err)
@@ -209,12 +225,46 @@ func (r *MongoDefaultRepository) UpsertMany(filter interface{}, elements []inter
 	return updateOneResult
 }
 
-func (r *MongoDefaultRepository) DeleteOne(model mongo.DeleteOneModel) *mongo.DeleteResult {
+func (r *MongoDefaultRepository) UpdateMany(models ...*MongoUpdateOneModel) (*mongo.BulkWriteResult, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if len(models) == 0 {
+		return nil, ErrNoElements
+	}
+
+	writeModels := make([]mongo.WriteModel, 0)
+
+	for _, model := range models {
+		writeModels = append(writeModels, model.model)
+	}
+
+	result, err := r.Collection.coll.BulkWrite(ctx, writeModels)
+	if err != nil {
+		logger.LogError(err)
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (r *MongoDefaultRepository) UpsertMany(models ...*MongoUpdateOneModel) (*mongo.BulkWriteResult, error) {
+	if len(models) == 0 {
+		return nil, ErrNoElements
+	}
+
+	for _, model := range models {
+		model.model.SetUpsert(true)
+	}
+
+	return r.UpdateMany(models...)
+}
+
+func (r *MongoDefaultRepository) DeleteOne(model *MongoDeleteOneModel) *mongo.DeleteResult {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	deleteOptions := options.Delete()
-	deleteOptions.Collation = model.Collation
 	deleteOptions.Hint = model.Hint
 
 	deleteOneResult, err := r.Collection.coll.DeleteOne(ctx, model.Filter, deleteOptions)

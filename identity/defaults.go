@@ -93,7 +93,10 @@ func SeedUsers(factory *mongodb.MongoFactory, databaseName string) {
 	repo := factory.NewDatabaseRepository(databaseName, constants.IdentityUsersCollection)
 	users := GetDefaultUsers()
 	for _, user := range users {
-		model := mongodb.NewUpdateOneModelBuilder().FilterBy("email", mongodb.Equal, user.Email).Encode(user, "refreshToken").Build()
+		model, err := mongodb.NewUpdateOneModelBuilder().FilterBy("email", mongodb.Equal, user.Email).Encode(user, "refreshToken").Build()
+		if err != nil {
+			logger.Error("There was an error upserting user %v during seeding", user.Email)
+		}
 		repo.UpsertOne(model)
 	}
 }
