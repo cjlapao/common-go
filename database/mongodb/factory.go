@@ -87,6 +87,71 @@ func (cursor mongoSingleResult) Decode(destination interface{}) error {
 	return cursor.sr.Decode(destination)
 }
 
+type mongoInsertOneResult struct {
+	result     *mongo.InsertOneResult
+	InsertedId interface{}
+}
+
+func (result *mongoInsertOneResult) FromMongo(entity *mongo.InsertOneResult) {
+	result.result = entity
+	result.InsertedId = entity.InsertedID
+}
+
+type mongoInsertManyResult struct {
+	result      *mongo.InsertManyResult
+	InsertedIds []interface{}
+}
+
+func (result *mongoInsertManyResult) FromMongo(entity *mongo.InsertManyResult) {
+	result.result = entity
+	result.InsertedIds = entity.InsertedIDs
+}
+
+type mongoUpdateResult struct {
+	result        *mongo.UpdateResult
+	MatchedCount  int64       // The number of documents matched by the filter.
+	ModifiedCount int64       // The number of documents modified by the operation.
+	UpsertedCount int64       // The number of documents upserted by the operation.
+	UpsertedID    interface{} // The _id field of the upserted document, or nil if no upsert was done.
+}
+
+func (result *mongoUpdateResult) FromMongo(entity *mongo.UpdateResult) {
+	result.result = entity
+	result.MatchedCount = entity.MatchedCount
+	result.ModifiedCount = entity.ModifiedCount
+	result.UpsertedCount = entity.UpsertedCount
+	result.UpsertedID = entity.UpsertedID
+}
+
+type mongoBulkWriteResult struct {
+	result        *mongo.BulkWriteResult
+	InsertedCount int64                 // The number of documents inserted.
+	MatchedCount  int64                 // The number of documents matched by filters in update and replace operations.
+	ModifiedCount int64                 // The number of documents modified by update and replace operations.
+	DeletedCount  int64                 // The number of documents deleted.
+	UpsertedCount int64                 // The number of documents upserted by update and replace operations.
+	UpsertedIDs   map[int64]interface{} // A map of operation index to the _id of each upserted document.
+}
+
+func (result *mongoBulkWriteResult) FromMongo(entity *mongo.BulkWriteResult) {
+	result.result = entity
+	result.InsertedCount = entity.InsertedCount
+	result.MatchedCount = entity.MatchedCount
+	result.ModifiedCount = entity.ModifiedCount
+	result.UpsertedCount = entity.UpsertedCount
+	result.UpsertedIDs = entity.UpsertedIDs
+}
+
+type mongoDeleteResult struct {
+	result       *mongo.DeleteResult
+	DeletedCount int64 // The number of documents deleted.
+}
+
+func (result *mongoDeleteResult) FromMongo(entity *mongo.DeleteResult) {
+	result.result = entity
+	result.DeletedCount = entity.DeletedCount
+}
+
 // MongoFactory MongoFactory Entity
 type MongoFactory struct {
 	Context         *execution_context.Context

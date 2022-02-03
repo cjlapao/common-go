@@ -22,6 +22,11 @@ type projectField struct {
 	projectedAs string
 }
 
+type addField struct {
+	field string
+	value interface{}
+}
+
 type sortField struct {
 	field string
 	order mongoSort
@@ -38,6 +43,7 @@ type pipelineType int
 
 const (
 	Custom pipelineType = iota
+	AddFields
 	Count
 	Limit
 	Lookup
@@ -63,6 +69,7 @@ func (s pipelineType) FromString(key string) pipelineType {
 }
 
 var toPipelineTypeString = map[pipelineType]string{
+	AddFields:      "ADD_FIELDS",
 	Count:          "COUNT",
 	Custom:         "CUSTOM",
 	Lookup:         "LOOKUP",
@@ -81,6 +88,7 @@ var toPipelineTypeString = map[pipelineType]string{
 }
 
 var toPipelineTypeID = map[string]pipelineType{
+	"ADD_FIELDS":       AddFields,
 	"COUNT":            Count,
 	"CUSTOM":           Custom,
 	"LIMIT":            Limit,
@@ -99,6 +107,7 @@ var toPipelineTypeID = map[string]pipelineType{
 }
 
 type PipelineOptions struct {
+	IncludeAddFields  bool
 	IncludeCount      bool
 	IncludeLimit      bool
 	IncludeMatch      bool
@@ -106,6 +115,7 @@ type PipelineOptions struct {
 	IncludeSkip       bool
 	IncludeSort       bool
 	IncludeUser       bool
+	IncludeUnwind     bool
 }
 
 type PipelineBuilder struct {
@@ -116,6 +126,7 @@ type PipelineBuilder struct {
 	sortingFields    []sortField
 	sortingEndFields []sortField
 	projectedFields  []projectField
+	addFields        []addField
 }
 
 // NewEmptyPipeline Creates a new pipeline builder for a specific collection
@@ -126,8 +137,10 @@ func NewEmptyPipeline(collection *mongoCollection) *PipelineBuilder {
 	builder.filters = make([]filter, 0)
 	builder.sortingFields = make([]sortField, 0)
 	builder.sortingEndFields = make([]sortField, 0)
+	builder.addFields = make([]addField, 0)
 	builder.collection = collection.coll
 	builder.options = PipelineOptions{
+		IncludeAddFields:  true,
 		IncludeCount:      true,
 		IncludeLimit:      true,
 		IncludeMatch:      true,
@@ -135,6 +148,7 @@ func NewEmptyPipeline(collection *mongoCollection) *PipelineBuilder {
 		IncludeSkip:       true,
 		IncludeSort:       true,
 		IncludeUser:       true,
+		IncludeUnwind:     true,
 	}
 
 	return &builder
@@ -469,6 +483,32 @@ func (pipelineBuilder *PipelineBuilder) ProjectFieldAs(field string, projectedAs
 	return pipelineBuilder
 }
 
+// AddField Adds a field to the result
+func (pipelineBuilder *PipelineBuilder) AddField(field string, value interface{}) *PipelineBuilder {
+	has, index := pipelineBuilder.hasAddField(field)
+	if !has {
+		addField := addField{
+			field: field,
+			value: value,
+		}
+		pipelineBuilder.addFields = append(pipelineBuilder.addFields, addField)
+	} else {
+		pipelineBuilder.addFields[index].value = value
+	}
+
+	hasPipeline, _ := pipelineBuilder.has(AddFields)
+	if !hasPipeline {
+		addFieldsPipeline := Pipeline{
+			executionOrder: pipelineBuilder.getNextIndex(),
+			pipelineType:   AddFields,
+		}
+
+		pipelineBuilder.pipelines = append(pipelineBuilder.pipelines, addFieldsPipeline)
+	}
+
+	return pipelineBuilder
+}
+
 // Skip adds a skip pipeline, if the skip is lower than 0 then no pipeline is added
 func (pipelineBuilder *PipelineBuilder) Skip(skip int) *PipelineBuilder {
 	if skip < 0 {
@@ -620,6 +660,7 @@ func (pipelineBuilder *PipelineBuilder) WithOptions(options PipelineOptions) *Pi
 // user, this allows the execution to skip any internal ones like MATCH or Project
 func (pipelineBuilder *PipelineBuilder) FilterByUserPipelines() *PipelineBuilder {
 	options := PipelineOptions{
+		IncludeAddFields:  false,
 		IncludeCount:      false,
 		IncludeLimit:      false,
 		IncludeMatch:      false,
@@ -627,6 +668,7 @@ func (pipelineBuilder *PipelineBuilder) FilterByUserPipelines() *PipelineBuilder
 		IncludeSkip:       false,
 		IncludeSort:       false,
 		IncludeUser:       true,
+		IncludeUnwind:     false,
 	}
 
 	pipelineBuilder.options = options
@@ -664,6 +706,10 @@ func (pipelineBuilder *PipelineBuilder) buildPipeline(options ...PipelineOptions
 		pipelineBuilder.getSortingFieldsPipeline()
 		pipelineBuilder.getSortingAfterFieldsPipeline()
 	}
+	if builderOptions.IncludeAddFields {
+		// Processing the addfields pipeline
+		pipelineBuilder.getAddFieldsPipeline()
+	}
 
 	pipelineBuilder.sortPipelines()
 	for _, pipeline := range pipelineBuilder.pipelines {
@@ -697,6 +743,14 @@ func (pipelineBuilder *PipelineBuilder) buildPipeline(options ...PipelineOptions
 			pipeline.pipelineType == SortAfter ||
 			pipeline.pipelineType == SortField ||
 			pipeline.pipelineType == SortAfterField) && builderOptions.IncludeSort {
+			pipelines = append(pipelines, pipeline.primitive)
+		}
+
+		if pipeline.pipelineType == Unwind && builderOptions.IncludeUnwind {
+			pipelines = append(pipelines, pipeline.primitive)
+		}
+
+		if pipeline.pipelineType == AddFields && builderOptions.IncludeAddFields {
 			pipelines = append(pipelines, pipeline.primitive)
 		}
 
@@ -734,6 +788,16 @@ func (pipelineBuilder *PipelineBuilder) hasFilteredField(fieldName string) (bool
 
 func (pipelineBuilder *PipelineBuilder) hasProjectedField(fieldName string) (bool, int) {
 	for index, field := range pipelineBuilder.projectedFields {
+		if strings.EqualFold(field.field, fieldName) {
+			return true, index
+		}
+	}
+
+	return false, -1
+}
+
+func (pipelineBuilder *PipelineBuilder) hasAddField(fieldName string) (bool, int) {
+	for index, field := range pipelineBuilder.addFields {
 		if strings.EqualFold(field.field, fieldName) {
 			return true, index
 		}
@@ -909,4 +973,39 @@ func (pipelineBuilder *PipelineBuilder) sortPipelines() {
 	sort.SliceStable(pipelineBuilder.pipelines, func(i, j int) bool {
 		return pipelineBuilder.pipelines[i].executionOrder < pipelineBuilder.pipelines[j].executionOrder
 	})
+}
+
+func (pipelineBuilder *PipelineBuilder) getAddFieldsPipeline() bool {
+	if len(pipelineBuilder.addFields) == 0 {
+		return false
+	}
+
+	fields := primitive.D{}
+
+	for _, addField := range pipelineBuilder.addFields {
+		primitiveField := bson.D{
+			{
+				Key:   addField.field,
+				Value: addField.value,
+			},
+		}
+		fields = append(fields, primitiveField...)
+	}
+	addPipeline := Pipeline{
+		pipelineType: AddFields,
+		primitive: bson.D{
+			{
+				Key:   "$addFields",
+				Value: fields,
+			},
+		},
+	}
+
+	has, index := pipelineBuilder.has(AddFields)
+	if has {
+		pipelineBuilder.pipelines[index].primitive = addPipeline.primitive
+		return true
+	}
+
+	return false
 }

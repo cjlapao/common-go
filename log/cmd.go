@@ -129,6 +129,16 @@ func (l *CmdLogger) Error(format string, words ...string) {
 	printMessage(format, "error", false, false, useTimestamp, words...)
 }
 
+// Error log message
+func (l *CmdLogger) Exception(err error, format string, words ...string) {
+	if format == "" {
+		format = err.Error()
+	} else {
+		format = format + ", err " + err.Error()
+	}
+	printMessage(format, "error", false, false, useTimestamp, words...)
+}
+
 // LogError log message
 func (l *CmdLogger) LogError(message error) {
 	if message != nil {

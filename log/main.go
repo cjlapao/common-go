@@ -25,6 +25,7 @@ type Log interface {
 	Debug(format string, words ...string)
 	Trace(format string, words ...string)
 	Error(format string, words ...string)
+	Exception(err error, format string, words ...string)
 	LogError(message error)
 	TaskError(format string, isComplete bool, words ...string)
 	Fatal(format string, words ...string)
@@ -271,6 +272,15 @@ func (l *Logger) LogError(message error) {
 			for _, logger := range l.Loggers {
 				logger.Error(message.Error())
 			}
+		}
+	}
+}
+
+// Exception log message
+func (l *Logger) Exception(err error, format string, words ...string) {
+	if l.LogLevel >= Error {
+		for _, logger := range l.Loggers {
+			logger.Exception(err, format, words...)
 		}
 	}
 }

@@ -2,6 +2,7 @@ package database
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/cjlapao/common-go/database/mongodb"
 	identity_constants "github.com/cjlapao/common-go/identity/constants"
@@ -10,13 +11,14 @@ import (
 
 var currentDatabase string
 var ErrUserNotValid = errors.New("user model is not valid")
+var ErrUnknown = errors.New("unknown error occurred")
 
 type MongoDBContextAdapter struct{}
 
 func (u MongoDBContextAdapter) GetUserById(id string) *models.User {
 	var result models.User
 	repo := getMongoDBTenantRepository()
-	dbUsers := repo.FindOne("_id", id)
+	dbUsers := repo.FindOne(fmt.Sprintf("_id eq %v", id))
 	dbUsers.Decode(&result)
 	return &result
 }
@@ -24,7 +26,7 @@ func (u MongoDBContextAdapter) GetUserById(id string) *models.User {
 func (u MongoDBContextAdapter) GetUserByEmail(email string) *models.User {
 	var result models.User
 	repo := getMongoDBTenantRepository()
-	dbUsers := repo.FindOne("email", email)
+	dbUsers := repo.FindOne(fmt.Sprintf("email eq %v", email))
 	dbUsers.Decode(&result)
 	return &result
 }
@@ -32,7 +34,7 @@ func (u MongoDBContextAdapter) GetUserByEmail(email string) *models.User {
 func (u MongoDBContextAdapter) GetUserByUsername(username string) *models.User {
 	var result models.User
 	repo := getMongoDBTenantRepository()
-	dbUsers := repo.FindOne("username", username)
+	dbUsers := repo.FindOne(fmt.Sprintf("username eq %v", username))
 	dbUsers.Decode(&result)
 	return &result
 }
@@ -45,9 +47,14 @@ func (u MongoDBContextAdapter) UpsertUser(user models.User) error {
 		if err != nil {
 			return err
 		}
-		result := repo.UpsertOne(builder)
+		result, err := repo.UpsertOne(builder)
+		if err != nil {
+			logger.Error("There was an error upserting user %v, %v", user.Email, err.Error())
+			return err
+		}
 		if result.MatchedCount <= 0 {
 			logger.Error("There was an error upserting user %v", user.Email)
+			return ErrUnknown
 		}
 	} else {
 		return ErrUserNotValid
@@ -67,7 +74,10 @@ func (u MongoDBContextAdapter) RemoveUser(id string) bool {
 	if err != nil {
 		return false
 	}
-	result := repo.DeleteOne(builder)
+	result, err := repo.DeleteOne(builder)
+	if err != nil {
+		logger.Exception(err, "there was an error removing user from collection with id %v", id)
+	}
 	if result.DeletedCount <= 0 {
 		logger.Error("There was an error removing userid %v", id)
 	}
@@ -94,7 +104,11 @@ func (u MongoDBContextAdapter) UpdateUserRefreshToken(id string, token string) b
 			return false
 		}
 
-		result := repo.UpsertOne(builder)
+		result, err := repo.UpsertOne(builder)
+		if err != nil {
+			logger.Exception(err, "There was an error while upserting the refresh token with id %v", id)
+			return false
+		}
 		if result.MatchedCount == 0 && result.ModifiedCount == 0 && result.UpsertedCount == 0 {
 			logger.Error("There was an error updating the refresh token for user with id %v", id)
 			return false
@@ -120,7 +134,11 @@ func (u MongoDBContextAdapter) UpdateUserEmailVerifyToken(id string, token strin
 		user.EmailVerifyToken = token
 		repo := getMongoDBTenantRepository()
 		builder, _ := mongodb.NewUpdateOneModelBuilder().FilterBy("_id", mongodb.Equal, id).Encode(user).Build()
-		result := repo.UpsertOne(builder)
+		result, err := repo.UpsertOne(builder)
+		if err != nil {
+			logger.Exception(err, "There was an error upserting the email verification token with id %v", id)
+			return false
+		}
 		if result.MatchedCount <= 0 {
 			logger.Error("There was an error updating the verify email token for user with id %v", id)
 			return false

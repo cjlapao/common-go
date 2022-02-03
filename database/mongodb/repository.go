@@ -15,14 +15,15 @@ type MongoRepository interface {
 	Find(filter interface{}) (*mongoCursor, error)
 	FindBy(filter string) (*mongoCursor, error)
 	FindFieldBy(fieldName string, operation filterOperation, value interface{}) (*mongoCursor, error)
-
-	FindOne(fieldName string, value string) *mongoSingleResult
-	InsertOne(element interface{}) *mongo.InsertOneResult
-	InsertMany(elements []interface{}) *mongo.InsertManyResult
-	UpsertOne(model *MongoUpdateOneModel) *mongo.UpdateResult
-	UpdateMany(models ...*MongoUpdateOneModel) (*mongo.BulkWriteResult, error)
-	UpsertMany(models ...*MongoUpdateOneModel) (*mongo.BulkWriteResult, error)
-	DeleteOne(model *MongoDeleteOneModel) *mongo.DeleteResult
+	FindOne(filter interface{}) *mongoSingleResult
+	InsertOne(element interface{}) (*mongoInsertOneResult, error)
+	InsertMany(elements ...interface{}) (*mongoInsertManyResult, error)
+	UpdateOne(model *MongoUpdateOneModel) (*mongoUpdateResult, error)
+	UpdateMany(models ...*MongoUpdateOneModel) (*mongoBulkWriteResult, error)
+	UpsertOne(model *MongoUpdateOneModel) (*mongoUpdateResult, error)
+	UpsertMany(models ...*MongoUpdateOneModel) (*mongoBulkWriteResult, error)
+	DeleteOne(model *MongoDeleteOneModel) (*mongoDeleteResult, error)
+	DeleteMany(filter interface{}) (*mongoDeleteResult, error)
 }
 
 type MongoDefaultRepository struct {
@@ -87,7 +88,7 @@ func (repository *MongoDefaultRepository) Find(filter interface{}) (*mongoCursor
 
 	if stringFilter, ok := filter.(string); ok {
 		if filter == "" {
-			filter = bson.D{}
+			filterToApply = bson.D{}
 		} else {
 			processedFilter, err := NewFilterParser(stringFilter).Parse()
 			if err != nil {
@@ -116,60 +117,67 @@ func (r *MongoDefaultRepository) FindBy(filter string) (*mongoCursor, error) {
 	return r.Find(filter)
 }
 
+// FindFieldBy finds a record using a specific field and operation, this is a more restricted filtering
+// but helps with the strong typed query that can be produced
+//
+// Example:
+//		repository.FindFieldBy("userId" , mongo.Equal, "someId")
 func (r *MongoDefaultRepository) FindFieldBy(fieldName string, operation filterOperation, value interface{}) (*mongoCursor, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
-	var filter interface{}
+	stringFilter := getOperationString(fieldName, operation, value)
 
-	if literalValue, ok := value.(string); ok {
-		if value == "" {
-			filter = bson.D{{}}
-		} else {
-			processedFilter, err := NewFilterParser(fieldName + " " + literalValue).Parse()
-			if err != nil {
-				filter = bson.D{
-					{
-						Key:   fieldName,
-						Value: value,
-					},
-				}
-			} else {
-				filter = processedFilter
-			}
-		}
-	} else {
-		filter = bson.D{
-			{
-				Key:   fieldName,
-				Value: value,
-			},
-		}
-	}
+	filterParser := NewFilterParser(stringFilter)
+	parsedFilter, err := filterParser.Parse()
 
 	defer cancel()
 
-	cur, err := r.Collection.coll.Find(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	cur, err := r.Collection.coll.Find(ctx, parsedFilter)
 
 	return &mongoCursor{cursor: cur}, err
 }
 
-func (r *MongoDefaultRepository) FindOne(fieldName string, value string) *mongoSingleResult {
+// FindOne Finds a single result based on a filter, this can be a bson document or
+// a odata type of query.
+//
+// Example:
+//		repository.FindOne("userId eq 'someId'")
+// or
+//		repository.FindOne(bson.M{"userId": "someId"})
+// The result will be a `mongoSingleResult` that can be decoded to any interface
+func (r *MongoDefaultRepository) FindOne(filter interface{}) *mongoSingleResult {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 
+	var filterToApply interface{}
+
 	defer cancel()
-	filter := bson.D{
-		{
-			Key:   fieldName,
-			Value: value,
-		},
+	if stringFilter, ok := filter.(string); ok {
+		if filter == "" {
+			filterToApply = bson.D{}
+		} else {
+			processedFilter, err := NewFilterParser(stringFilter).Parse()
+			if err != nil {
+				logger.Error("There was an error applying the filter, %v", err.Error())
+				return nil
+			} else {
+				filterToApply = processedFilter
+			}
+		}
+	} else {
+		filterToApply = filter
 	}
 
-	result := r.Collection.coll.FindOne(ctx, filter)
+	result := r.Collection.coll.FindOne(ctx, filterToApply)
 
 	return &mongoSingleResult{sr: result}
 }
 
-func (r *MongoDefaultRepository) InsertOne(element interface{}) *mongo.InsertOneResult {
+// InsertOne Inserts a record int the collection and returns the inserted id
+func (r *MongoDefaultRepository) InsertOne(element interface{}) (*mongoInsertOneResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -177,13 +185,16 @@ func (r *MongoDefaultRepository) InsertOne(element interface{}) *mongo.InsertOne
 
 	if err != nil {
 		logger.LogError(err)
-		return nil
+		return nil, err
 	}
 
-	return insertResult
+	result := mongoInsertOneResult{}
+	result.FromMongo(insertResult)
+	return &result, err
 }
 
-func (r *MongoDefaultRepository) InsertMany(elements []interface{}) *mongo.InsertManyResult {
+// InsertMany Inserts multiple records in the collection and returns the inserted id's
+func (r *MongoDefaultRepository) InsertMany(elements ...interface{}) (*mongoInsertManyResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -191,13 +202,18 @@ func (r *MongoDefaultRepository) InsertMany(elements []interface{}) *mongo.Inser
 
 	if err != nil {
 		logger.LogError(err)
-		return nil
+		return nil, err
 	}
 
-	return insertResult
+	result := mongoInsertManyResult{}
+	result.FromMongo(insertResult)
+	return &result, nil
 }
 
-func (r *MongoDefaultRepository) UpdateOne(model *MongoUpdateOneModel) *mongo.UpdateResult {
+// UpdateOne updates a document in a collection using a UpdateOneModel, this can be constructed
+// using strong typed language when called the UpdateOneModelBuilder
+// It will return the number of affected documents
+func (r *MongoDefaultRepository) UpdateOne(model *MongoUpdateOneModel) (*mongoUpdateResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	options := options.Update().SetUpsert(*model.model.Upsert)
@@ -205,27 +221,26 @@ func (r *MongoDefaultRepository) UpdateOne(model *MongoUpdateOneModel) *mongo.Up
 
 	if err != nil {
 		logger.LogError(err)
-		return nil
+		return nil, err
 	}
 
-	return updateOneResult
+	result := mongoUpdateResult{}
+	result.FromMongo(updateOneResult)
+	return &result, nil
 }
 
-func (r *MongoDefaultRepository) UpsertOne(model *MongoUpdateOneModel) *mongo.UpdateResult {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	options := options.Update().SetUpsert(true)
-	updateOneResult, err := r.Collection.coll.UpdateOne(ctx, model.Filter, model.Update, options)
-
-	if err != nil {
-		logger.LogError(err)
-		return nil
-	}
-
-	return updateOneResult
+// UpsertOne similar to the UpdateOne this updates or inserts (if it does not exists) a document
+// in a collection using a UpdateOneModel, this can be constructed using strong typed language
+// when called the UpdateOneModelBuilder.
+// It will return the number of affected documents
+func (r *MongoDefaultRepository) UpsertOne(model *MongoUpdateOneModel) (*mongoUpdateResult, error) {
+	model.model.SetUpsert(true)
+	return r.UpdateOne(model)
 }
 
-func (r *MongoDefaultRepository) UpdateMany(models ...*MongoUpdateOneModel) (*mongo.BulkWriteResult, error) {
+// UpdateMany updates documents in the collection using a UpdateOneModel, this can be constructed
+// using strong typed language when called the UpdateOneModelBuilder.
+func (r *MongoDefaultRepository) UpdateMany(models ...*MongoUpdateOneModel) (*mongoBulkWriteResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -239,16 +254,21 @@ func (r *MongoDefaultRepository) UpdateMany(models ...*MongoUpdateOneModel) (*mo
 		writeModels = append(writeModels, model.model)
 	}
 
-	result, err := r.Collection.coll.BulkWrite(ctx, writeModels)
+	bulkWriteResult, err := r.Collection.coll.BulkWrite(ctx, writeModels)
 	if err != nil {
 		logger.LogError(err)
 		return nil, err
 	}
 
-	return result, nil
+	result := mongoBulkWriteResult{}
+	result.FromMongo(bulkWriteResult)
+	return &result, nil
 }
 
-func (r *MongoDefaultRepository) UpsertMany(models ...*MongoUpdateOneModel) (*mongo.BulkWriteResult, error) {
+// UpsertMany Similar to UpdateMany this updates or inserts (if it does not exists) a document
+// in a collection using a UpdateOneModel, this can be constructed using strong typed language
+// when called the UpdateOneModelBuilder.
+func (r *MongoDefaultRepository) UpsertMany(models ...*MongoUpdateOneModel) (*mongoBulkWriteResult, error) {
 	if len(models) == 0 {
 		return nil, ErrNoElements
 	}
@@ -260,7 +280,9 @@ func (r *MongoDefaultRepository) UpsertMany(models ...*MongoUpdateOneModel) (*mo
 	return r.UpdateMany(models...)
 }
 
-func (r *MongoDefaultRepository) DeleteOne(model *MongoDeleteOneModel) *mongo.DeleteResult {
+// DeleteOne Deletes a document in a collection using a DeleteOneModel, this can be constructed
+// using strong typed language using the DeleteOneModelBuilder
+func (r *MongoDefaultRepository) DeleteOne(model *MongoDeleteOneModel) (*mongoDeleteResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -270,9 +292,54 @@ func (r *MongoDefaultRepository) DeleteOne(model *MongoDeleteOneModel) *mongo.De
 	deleteOneResult, err := r.Collection.coll.DeleteOne(ctx, model.Filter, deleteOptions)
 
 	if err != nil {
-		logger.LogError(err)
-		return nil
+		logger.Exception(err, "There was an error while deleting collection documents")
+		return nil, err
 	}
 
-	return deleteOneResult
+	result := mongoDeleteResult{}
+	result.FromMongo(deleteOneResult)
+	return &result, nil
+}
+
+// DeleteMany Deletes documents in a collection based on a filter, the filter can be a valid bson document
+// or you can use a odata type query.
+//
+// Example:
+//		repository.DeleteMany(bson.M{"userId": "someId"})
+// or
+//		repository.DeleteMany("userId eq 'someId'")
+func (r *MongoDefaultRepository) DeleteMany(filter interface{}) (*mongoDeleteResult, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var filterToApply interface{}
+
+	if stringFilter, ok := filter.(string); ok {
+		if filter == "" {
+			filterToApply = bson.D{}
+		} else {
+			processedFilter, err := NewFilterParser(stringFilter).Parse()
+			if err != nil {
+				logger.Exception(err, "There was an error applying the filter")
+				return nil, err
+			} else {
+				filterToApply = processedFilter
+			}
+		}
+	} else {
+		filterToApply = filter
+	}
+
+	deleteOptions := options.Delete()
+
+	deleteOneResult, err := r.Collection.coll.DeleteMany(ctx, filterToApply, deleteOptions)
+
+	if err != nil {
+		logger.Exception(err, "There was an error while deleting collection documents")
+		return nil, err
+	}
+
+	result := mongoDeleteResult{}
+	result.FromMongo(deleteOneResult)
+	return &result, nil
 }
