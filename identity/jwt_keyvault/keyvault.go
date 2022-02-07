@@ -100,6 +100,7 @@ func (kv *JwtKeyVaultService) WithEcdsaKey(id string, privateKey *ecdsa.PrivateK
 			PrivateKey: privateKey,
 			PublicKey:  privateKey.PublicKey,
 		}
+
 		key.Type = key.Type.FromString("ES" + fmt.Sprintf("%v", privateKey.Params().BitSize))
 		key.Size = key.Size.FromString(fmt.Sprintf("%v", privateKey.Params().BitSize))
 		key.Thumbprint = encryption.GetBase64KeyFingerprint(privateKey.PublicKey)

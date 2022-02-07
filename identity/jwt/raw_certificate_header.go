@@ -1,6 +1,7 @@
 package jwt
 
 type RawCertificateHeader struct {
-	KeyId string `json:"kid,omitempty"`
-	X5T   string `json:"x5t,omitempty"`
+	Algorithm string `json:"alg,omitempty"`
+	KeyId     string `json:"kid,omitempty"`
+	X5T       string `json:"x5t,omitempty"`
 }

@@ -19,12 +19,12 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// AuthorizationMiddlewareAdapter validates a Authorization Bearer during a rest api call
+// TokenAuthorizationMiddlewareAdapter validates a Authorization Bearer during a rest api call
 // It can take an array of roles and claims to further validate the token in a more granular
 // view, it also can take an OR option in both if the role or claim are coma separated.
 // For example a claim like "_read,_write" will be valid if the user either has a _read claim
 // or a _write claim making them both valid
-func AuthorizationMiddlewareAdapter(roles []string, claims []string) controllers.Adapter {
+func TokenAuthorizationMiddlewareAdapter(roles []string, claims []string) controllers.Adapter {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := execution_context.Get()
@@ -66,10 +66,18 @@ func AuthorizationMiddlewareAdapter(roles []string, claims []string) controllers
 
 			// Validating userToken against the keys
 			if authorized {
-				userToken, err = jwt.ValidateUserToken(jwt_token, ctx.Authorization.Scope)
-				if validateError != nil {
+				var validateUserTokenError error
+				if ctx.Authorization.Options.KeyVaultEnabled {
+					userToken, validateUserTokenError = jwt.ValidateUserToken(jwt_token, ctx.Authorization.Scope)
+				} else if ctx.Authorization.Options.PublicKey != "" {
+					userToken, validateUserTokenError = jwt.ValidateUserToken(jwt_token, ctx.Authorization.Scope)
+				} else {
+					validateUserTokenError = errors.New("No public or private key found to validate token")
+				}
+
+				if validateUserTokenError != nil {
 					authorized = false
-					validateError = errors.New("bearer token is not valid, " + err.Error())
+					validateError = errors.New("bearer token is not valid, " + validateUserTokenError.Error())
 					logger.Error("Error validating token, %v", validateError.Error())
 				}
 			}

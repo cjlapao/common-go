@@ -9,9 +9,11 @@ import (
 	"github.com/cjlapao/common-go/identity/interfaces"
 	"github.com/cjlapao/common-go/identity/jwt_keyvault"
 	"github.com/cjlapao/common-go/log"
-	"github.com/cjlapao/common-go/security/encryption"
 	"github.com/cjlapao/common-go/service_provider"
 )
+
+var logger = log.Get()
+var ErrNoPrivateKey = errors.New("no private key found")
 
 type AuthorizationContext struct {
 	User              *UserContext
@@ -22,7 +24,7 @@ type AuthorizationContext struct {
 	Options           AuthorizationOptions
 	ValidationOptions AuthorizationValidationOptions
 	KeyVault          *jwt_keyvault.JwtKeyVaultService
-	ContextAdapter    interfaces.UserDatabaseAdapter
+	ContextAdapter    interfaces.UserContextAdapter
 }
 
 var currentAuthorizationContext *AuthorizationContext
@@ -61,7 +63,6 @@ func (a *AuthorizationContext) WithOptions(options AuthorizationOptions) *Author
 }
 
 func (a *AuthorizationContext) WithDefaultOptions() *AuthorizationContext {
-	logger := log.Get()
 	config := configuration.Get()
 	issuer := config.GetString("JWT_ISSUER")
 	tokenDuration := config.GetInt("JWT_TOKEN_DURATION")
@@ -69,12 +70,6 @@ func (a *AuthorizationContext) WithDefaultOptions() *AuthorizationContext {
 	verifyEmailtokenDuration := config.GetInt("JWT_VERIFY_EMAIL_TOKEN_DURATION")
 	scope := config.GetString("JWT_SCOPE")
 	authorizationType := config.GetString("JWT_AUTH_TYPE")
-	keySize := config.GetString("JWT_KEY_SIZE")
-	keyId := config.GetString("JWT_KEY_ID")
-	if keyId != "" {
-		keyId = "_" + keyId
-	}
-	privateKey := config.GetString("JWT" + keyId + "_PRIVATE_KEY")
 
 	// Setting the default startup issuer to the localhost if it was not set
 	// TODO: Improve the issuer calculations with overrides
@@ -129,30 +124,6 @@ func (a *AuthorizationContext) WithDefaultOptions() *AuthorizationContext {
 		VerifyEmailTokenDuration: verifyEmailtokenDuration,
 	}
 
-	// If not private key was found then we need to generate a panic as we cannot proceed
-	if privateKey == "" {
-		err := errors.New("private key not found")
-		logger.Error("There was an error initializing authorization context, %v", err.Error())
-		panic(err.Error())
-	}
-
-	// Getting the keyId from the private one
-	keyId = strings.TrimLeft(keyId, "_")
-
-	switch strings.ToLower(authorizationType) {
-	case "hmac":
-		if keySize == "" {
-			keySize = "256bit"
-		}
-		var size encryption.EncryptionKeySize
-		size = size.FromString(keySize)
-		a.KeyVault.WithBase64HmacKey(keyId, privateKey, size)
-	case "ecdsa":
-		a.KeyVault.WithBase64EcdsaKey(keyId, privateKey)
-	case "rsa":
-		a.KeyVault.WithBase64RsaKey(keyId, privateKey)
-	}
-
 	return a
 }
 
@@ -187,6 +158,25 @@ func (a *AuthorizationContext) WithScope(scope string) *AuthorizationContext {
 	a.Scope = scope
 
 	return a
+}
+
+func (a *AuthorizationContext) WithPublicKey(key string) *AuthorizationContext {
+	a.Options.KeyVaultEnabled = false
+	logger.Info("Initializing Authorization layer with no signing capability.")
+	a.Options.KeyVaultEnabled = false
+	logger.Debug("Using public key %v", key)
+	a.Options.PublicKey = key
+	return a
+}
+
+func (a *AuthorizationContext) WithKeyVault() *AuthorizationContext {
+	a.Options.KeyVaultEnabled = true
+	a.Options.PublicKey = ""
+	return a
+}
+
+func (a *AuthorizationContext) GetKeyVault() *jwt_keyvault.JwtKeyVaultService {
+	return a.KeyVault
 }
 
 func (a *AuthorizationContext) SetRequestIssuer(r *http.Request, tenantId string) string {

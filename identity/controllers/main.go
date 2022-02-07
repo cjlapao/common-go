@@ -25,7 +25,7 @@ func NewDefaultAuthorizationControllers() *AuthorizationControllers {
 	return &controllers
 }
 
-func NewAuthorizationControllers(context interfaces.UserDatabaseAdapter) *AuthorizationControllers {
+func NewAuthorizationControllers(context interfaces.UserContextAdapter) *AuthorizationControllers {
 	ctx := execution_context.Get()
 	ctx.UserDatabaseAdapter = context
 	controllers := AuthorizationControllers{

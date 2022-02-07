@@ -13,33 +13,33 @@ var currentDatabase string
 var ErrUserNotValid = errors.New("user model is not valid")
 var ErrUnknown = errors.New("unknown error occurred")
 
-type MongoDBContextAdapter struct{}
+type MongoDBUserContextAdapter struct{}
 
-func (u MongoDBContextAdapter) GetUserById(id string) *models.User {
+func (u MongoDBUserContextAdapter) GetUserById(id string) *models.User {
 	var result models.User
 	repo := getMongoDBTenantRepository()
-	dbUsers := repo.FindOne(fmt.Sprintf("_id eq %v", id))
+	dbUsers := repo.FindOne(fmt.Sprintf("_id eq '%v'", id))
 	dbUsers.Decode(&result)
 	return &result
 }
 
-func (u MongoDBContextAdapter) GetUserByEmail(email string) *models.User {
+func (u MongoDBUserContextAdapter) GetUserByEmail(email string) *models.User {
 	var result models.User
 	repo := getMongoDBTenantRepository()
-	dbUsers := repo.FindOne(fmt.Sprintf("email eq %v", email))
+	dbUsers := repo.FindOne(fmt.Sprintf("email eq '%v'", email))
 	dbUsers.Decode(&result)
 	return &result
 }
 
-func (u MongoDBContextAdapter) GetUserByUsername(username string) *models.User {
+func (u MongoDBUserContextAdapter) GetUserByUsername(username string) *models.User {
 	var result models.User
 	repo := getMongoDBTenantRepository()
-	dbUsers := repo.FindOne(fmt.Sprintf("username eq %v", username))
+	dbUsers := repo.FindOne(fmt.Sprintf("username eq '%v'", username))
 	dbUsers.Decode(&result)
 	return &result
 }
 
-func (u MongoDBContextAdapter) UpsertUser(user models.User) error {
+func (u MongoDBUserContextAdapter) UpsertUser(user models.User) error {
 	if user.IsValid() {
 		repo := getMongoDBTenantRepository()
 		logger.Info("Upserting user %v into database %v", currentDatabase)
@@ -63,7 +63,7 @@ func (u MongoDBContextAdapter) UpsertUser(user models.User) error {
 	return nil
 }
 
-func (u MongoDBContextAdapter) RemoveUser(id string) bool {
+func (u MongoDBUserContextAdapter) RemoveUser(id string) bool {
 	if id == "" {
 		return false
 	}
@@ -85,7 +85,7 @@ func (u MongoDBContextAdapter) RemoveUser(id string) bool {
 	return true
 }
 
-func (u MongoDBContextAdapter) GetUserRefreshToken(id string) *string {
+func (u MongoDBUserContextAdapter) GetUserRefreshToken(id string) *string {
 	user := u.GetUserById(id)
 	if user != nil {
 		return &user.RefreshToken
@@ -94,7 +94,7 @@ func (u MongoDBContextAdapter) GetUserRefreshToken(id string) *string {
 	return nil
 }
 
-func (u MongoDBContextAdapter) UpdateUserRefreshToken(id string, token string) bool {
+func (u MongoDBUserContextAdapter) UpdateUserRefreshToken(id string, token string) bool {
 	user := u.GetUserById(id)
 	if user != nil {
 		user.RefreshToken = token
@@ -119,7 +119,7 @@ func (u MongoDBContextAdapter) UpdateUserRefreshToken(id string, token string) b
 	return false
 }
 
-func (u MongoDBContextAdapter) GetUserEmailVerifyToken(id string) *string {
+func (u MongoDBUserContextAdapter) GetUserEmailVerifyToken(id string) *string {
 	user := u.GetUserById(id)
 	if user != nil {
 		return &user.EmailVerifyToken
@@ -128,7 +128,7 @@ func (u MongoDBContextAdapter) GetUserEmailVerifyToken(id string) *string {
 	return nil
 }
 
-func (u MongoDBContextAdapter) UpdateUserEmailVerifyToken(id string, token string) bool {
+func (u MongoDBUserContextAdapter) UpdateUserEmailVerifyToken(id string, token string) bool {
 	user := u.GetUserById(id)
 	if user != nil {
 		user.EmailVerifyToken = token

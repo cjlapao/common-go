@@ -24,7 +24,7 @@ type Context struct {
 	Caches              *cache.CacheService
 	TokenCache          *jwt_token_cache.JwtTokenCacheProvider
 	Authorization       *authorization_context.AuthorizationContext
-	UserDatabaseAdapter interfaces.UserDatabaseAdapter
+	UserDatabaseAdapter interfaces.UserContextAdapter
 	CorrelationId       string
 	Environment         string
 	IsDevelopment       bool

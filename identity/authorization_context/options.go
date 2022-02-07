@@ -5,6 +5,7 @@ import (
 )
 
 type AuthorizationOptions struct {
+	KeyVaultEnabled          bool
 	TokenDuration            int
 	RefreshTokenDuration     int
 	VerifyEmailTokenDuration int

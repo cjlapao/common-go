@@ -1,5 +1,7 @@
 package database
 
-import "github.com/cjlapao/common-go/execution_context"
+import (
+	"github.com/cjlapao/common-go/log"
+)
 
-var logger = execution_context.Get().Services.Logger
+var logger = log.Get()

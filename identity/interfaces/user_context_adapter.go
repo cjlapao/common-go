@@ -4,7 +4,7 @@ import (
 	"github.com/cjlapao/common-go/identity/models"
 )
 
-type UserDatabaseAdapter interface {
+type UserContextAdapter interface {
 	GetUserById(id string) *models.User
 	GetUserByEmail(email string) *models.User
 	GetUserByUsername(username string) *models.User

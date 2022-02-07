@@ -115,7 +115,7 @@ func (l *HttpListener) WithDefaultAuthentication() *HttpListener {
 	return l.WithAuthentication(context)
 }
 
-func (l *HttpListener) WithAuthentication(context interfaces.UserDatabaseAdapter) *HttpListener {
+func (l *HttpListener) WithAuthentication(context interfaces.UserContextAdapter) *HttpListener {
 	ctx := execution_context.Get()
 	if ctx.Authorization != nil {
 		defaultAuthControllers := authControllers.NewAuthorizationControllers(context)
@@ -171,7 +171,7 @@ func (l *HttpListener) AddAuthorizedController(c controllers.Controller, path st
 	}
 	adapters := make([]controllers.Adapter, 0)
 	adapters = append(adapters, l.DefaultAdapters...)
-	adapters = append(adapters, middleware.AuthorizationMiddlewareAdapter([]string{}, []string{}))
+	adapters = append(adapters, middleware.TokenAuthorizationMiddlewareAdapter([]string{}, []string{}))
 
 	if l.Options.ApiPrefix != "" {
 		path = l.Options.ApiPrefix + path
@@ -201,7 +201,7 @@ func (l *HttpListener) AddAuthorizedControllerWithRolesAndClaims(c controllers.C
 	}
 	adapters := make([]controllers.Adapter, 0)
 	adapters = append(adapters, l.DefaultAdapters...)
-	adapters = append(adapters, middleware.AuthorizationMiddlewareAdapter(roles, claims))
+	adapters = append(adapters, middleware.TokenAuthorizationMiddlewareAdapter(roles, claims))
 
 	if l.Options.ApiPrefix != "" {
 		path = l.Options.ApiPrefix + path

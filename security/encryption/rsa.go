@@ -47,37 +47,86 @@ func (h RSAHelper) DecodePrivateKeyFromPem(pemEncoded string) *rsa.PrivateKey {
 	privateKey, err := x509.ParsePKCS1PrivateKey(x509Encoded)
 	if err != nil {
 		logger.Error("There was an error decoding the private key from pem: %v", err.Error())
+		return nil
 	}
 
 	return privateKey
+}
+
+func (h RSAHelper) DecodePublicKeyFromPem(pemEncoded string) *rsa.PublicKey {
+	block, _ := pem.Decode([]byte(pemEncoded))
+	x509Encoded := block.Bytes
+	publicKey, err := x509.ParsePKCS1PublicKey(x509Encoded)
+	if err != nil {
+		logger.Error("There was an error decoding the private key from pem: %v", err.Error())
+		return nil
+	}
+
+	return publicKey
 }
 
 func (h RSAHelper) DecodePrivateKeyFromBase64(bas64Encoded string) *rsa.PrivateKey {
 	x509Encoded, err := base64.URLEncoding.DecodeString(bas64Encoded)
 	if err != nil {
 		logger.Error("There was an error decoding the private key from base64: %v", err.Error())
+		return nil
 	}
 
 	privateKey, err := x509.ParsePKCS1PrivateKey(x509Encoded)
 	if err != nil {
 		logger.Error("There was an error getting the private key from base64: %v", err.Error())
+		return nil
 	}
 
 	return privateKey
+}
+
+func (h RSAHelper) DecodePublicKeyFromBase64(bas64Encoded string) *rsa.PublicKey {
+	x509Encoded, err := base64.URLEncoding.DecodeString(bas64Encoded)
+	if err != nil {
+		logger.Error("There was an error decoding the private key from base64: %v", err.Error())
+		return nil
+	}
+
+	publicKey, err := x509.ParsePKCS1PublicKey(x509Encoded)
+	if err != nil {
+		logger.Error("There was an error getting the private key from base64: %v", err.Error())
+		return nil
+	}
+
+	return publicKey
 }
 
 func (h RSAHelper) DecodePrivateKeyFromBase64Pem(bas64Encoded string) *rsa.PrivateKey {
 	pemEncoded, err := base64.URLEncoding.DecodeString(bas64Encoded)
 	if err != nil {
 		logger.Error("There was an error decoding the private key from base64: %v", err.Error())
+		return nil
 	}
 
 	privateKey := h.DecodePrivateKeyFromPem(string(pemEncoded))
 	if privateKey == nil {
 		logger.Error("There was an error getting the private key from base64: %v", err.Error())
+		return nil
 	}
 
 	return privateKey
+}
+
+func (h RSAHelper) DecodePublicKeyFromBase64Pem(bas64Encoded string) *rsa.PublicKey {
+	pemEncoded, err := base64.URLEncoding.DecodeString(bas64Encoded)
+	if err != nil {
+		logger.Error("There was an error decoding the private key from base64: %v", err.Error())
+		return nil
+	}
+
+	publicKey := h.DecodePublicKeyFromPem(string(pemEncoded))
+	if publicKey == nil {
+		logger.Error("There was an error getting the private key from base64: %v", err.Error())
+		return nil
+	}
+
+	return publicKey
 }
 
 func (h RSAHelper) GeneratePrivateKey(size EncryptionKeySize) *rsa.PrivateKey {

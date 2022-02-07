@@ -4,6 +4,7 @@ package jwt
 import (
 	"crypto/ecdsa"
 	"crypto/rsa"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -211,31 +212,79 @@ func ValidateUserToken(token string, scope string, audiences ...string) (*models
 	tokenBytes = []byte(token)
 	var err error
 	var signKey *jwt_keyvault.JwtKeyVaultItem
+
 	rawToken, err := jwt.ParseWithoutCheck(tokenBytes)
 	if err != nil {
 		return nil, err
 	}
 
-	// Verifying signature using the key that was sign with
-	signKey = ctx.Authorization.KeyVault.GetKey(rawToken.KeyID)
-	switch kt := signKey.PrivateKey.(type) {
-	case *ecdsa.PrivateKey:
-		key := kt.PublicKey
-		verifiedToken, err = jwt.ECDSACheck(tokenBytes, &key)
+	if ctx.Authorization.Options.KeyVaultEnabled {
+		// Verifying signature using the key that was sign with
+		signKey = ctx.Authorization.KeyVault.GetKey(rawToken.KeyID)
+		switch kt := signKey.PrivateKey.(type) {
+		case *ecdsa.PrivateKey:
+			key := kt.PublicKey
+			verifiedToken, err = jwt.ECDSACheck(tokenBytes, &key)
+			if err != nil {
+				return nil, err
+			}
+		case string:
+			verifiedToken, err = jwt.HMACCheck(tokenBytes, []byte(kt))
+			if err != nil {
+				return nil, err
+			}
+		case *rsa.PrivateKey:
+			key := kt.PublicKey
+			verifiedToken, err = jwt.RSACheck(tokenBytes, &key)
+			if err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		if ctx.Authorization.Options.PublicKey == "" {
+			err = errors.New("public key not present for validation")
+			return nil, err
+		}
+
+		var tokenHeader RawCertificateHeader
+		err = json.Unmarshal(rawToken.RawHeader, &tokenHeader)
 		if err != nil {
 			return nil, err
 		}
-	case string:
-		verifiedToken, err = jwt.HMACCheck(tokenBytes, []byte(kt))
-		if err != nil {
-			return nil, err
+		switch tokenHeader.Algorithm {
+		case "HS256", "HS384", "HS512":
+			publicKey, err := base64.StdEncoding.DecodeString(ctx.Authorization.Options.PublicKey)
+			if err != nil {
+				return nil, err
+			}
+			verifiedToken, err = jwt.HMACCheck(tokenBytes, publicKey)
+			if err != nil {
+				return nil, err
+			}
+		case "ES256", "ES384", "ES512":
+			publicKey := encryption.ECDSAHelper{}.DecodePublicKeyFromPem(ctx.Authorization.Options.PublicKey)
+			if publicKey == nil {
+				return nil, errors.New("invalid public key")
+			}
+			verifiedToken, err = jwt.ECDSACheck(tokenBytes, publicKey)
+			if err != nil {
+				return nil, err
+			}
+		case "RS256", "RS384", "RS512":
+			publicKey := encryption.RSAHelper{}.DecodePublicKeyFromPem(ctx.Authorization.Options.PublicKey)
+			if publicKey == nil {
+				return nil, errors.New("invalid public key")
+			}
+			verifiedToken, err = jwt.RSACheck(tokenBytes, publicKey)
+			if err != nil {
+				return nil, err
+			}
 		}
-	case *rsa.PrivateKey:
-		key := kt.PublicKey
-		verifiedToken, err = jwt.RSACheck(tokenBytes, &key)
-		if err != nil {
-			return nil, err
-		}
+	}
+
+	if verifiedToken == nil {
+		err = errors.New("no public or private key found, exiting")
+		return nil, err
 	}
 
 	// Transforming token into a user token

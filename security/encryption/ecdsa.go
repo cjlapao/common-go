@@ -48,35 +48,87 @@ func (h ECDSAHelper) DecodePrivateKeyFromPem(pemEncoded string) *ecdsa.PrivateKe
 	privateKey, err := x509.ParseECPrivateKey(x509Encoded)
 	if err != nil {
 		logger.Error("There was an error decoding the private key from pem: %v", err.Error())
+		return nil
 	}
 
 	return privateKey
+}
+
+func (h ECDSAHelper) DecodePublicKeyFromPem(pemEncoded string) *ecdsa.PublicKey {
+	block, _ := pem.Decode([]byte(pemEncoded))
+	x509Encoded := block.Bytes
+	genericPublicKey, err := x509.ParsePKIXPublicKey(x509Encoded)
+	if err != nil {
+		logger.Error("There was an error decoding the private key from pem: %v", err.Error())
+		return nil
+	}
+
+	publicKey := genericPublicKey.(*ecdsa.PublicKey)
+	return publicKey
 }
 
 func (h ECDSAHelper) DecodePrivateKeyFromBase64(bas64Encoded string) *ecdsa.PrivateKey {
 	x509Encoded, err := base64.URLEncoding.DecodeString(bas64Encoded)
 	if err != nil {
 		logger.Error("There was an error decoding the private key from base64: %v", err.Error())
+		return nil
 	}
 
 	privateKey, err := x509.ParseECPrivateKey(x509Encoded)
 	if err != nil {
 		logger.Error("There was an error getting the private key from base64: %v", err.Error())
+		return nil
 	}
 
 	return privateKey
+}
+
+func (h ECDSAHelper) DecodePublicKeyFromBase64(bas64Encoded string) *ecdsa.PublicKey {
+	x509Encoded, err := base64.URLEncoding.DecodeString(bas64Encoded)
+	if err != nil {
+		logger.Error("There was an error decoding the private key from base64: %v", err.Error())
+		return nil
+	}
+
+	genericPublicKey, err := x509.ParsePKIXPublicKey(x509Encoded)
+	if err != nil {
+		logger.Error("There was an error getting the private key from base64: %v", err.Error())
+		return nil
+	}
+
+	publicKey := genericPublicKey.(*ecdsa.PublicKey)
+	return publicKey
 }
 
 func (h ECDSAHelper) DecodePrivateKeyFromBase64Pem(bas64Encoded string) *ecdsa.PrivateKey {
 	pemEncoded, err := base64.URLEncoding.DecodeString(bas64Encoded)
 	if err != nil {
 		logger.Error("There was an error decoding the private key from base64: %v", err.Error())
+		return nil
 	}
 	privateKey := h.DecodePrivateKeyFromPem(string(pemEncoded))
 
 	// privateKey, err := x509.ParseECPrivateKey(pemEncoded)
 	if privateKey == nil {
 		logger.Error("There was an error getting the private key from base64: %v", err.Error())
+		return nil
+	}
+
+	return privateKey
+}
+
+func (h ECDSAHelper) DecodePublicKeyFromBase64Pem(bas64Encoded string) *ecdsa.PublicKey {
+	pemEncoded, err := base64.URLEncoding.DecodeString(bas64Encoded)
+	if err != nil {
+		logger.Error("There was an error decoding the private key from base64: %v", err.Error())
+		return nil
+	}
+	privateKey := h.DecodePublicKeyFromPem(string(pemEncoded))
+
+	// privateKey, err := x509.ParseECPrivateKey(pemEncoded)
+	if privateKey == nil {
+		logger.Error("There was an error getting the private key from base64: %v", err.Error())
+		return nil
 	}
 
 	return privateKey
