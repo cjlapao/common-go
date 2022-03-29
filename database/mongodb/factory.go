@@ -65,6 +65,15 @@ type mongoCursor struct {
 }
 
 func (cursor mongoCursor) Decode(destination interface{}) error {
+	var destType = reflect.TypeOf(destination)
+	if destType.Kind() != reflect.Ptr {
+		return errors.New("dest must be a pointer type")
+	}
+
+	return cursor.cursor.Decode(destination)
+}
+
+func (cursor mongoCursor) DecodeAll(destination interface{}) error {
 	ctx := context.Background()
 	var destType = reflect.TypeOf(destination)
 	if destType.Kind() != reflect.Ptr {
@@ -72,6 +81,14 @@ func (cursor mongoCursor) Decode(destination interface{}) error {
 	}
 
 	return cursor.cursor.All(ctx, destination)
+}
+
+func (cursor mongoCursor) Next(ctx context.Context) bool {
+	return cursor.cursor.Next(ctx)
+}
+
+func (cursor mongoCursor) Current() interface{} {
+	return cursor.cursor.Current
 }
 
 type mongoSingleResult struct {
@@ -85,6 +102,10 @@ func (cursor mongoSingleResult) Decode(destination interface{}) error {
 	}
 
 	return cursor.sr.Decode(destination)
+}
+
+func (cursor mongoSingleResult) Err() error {
+	return cursor.sr.Err()
 }
 
 type mongoInsertOneResult struct {
