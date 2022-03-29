@@ -3,6 +3,9 @@
 package automapper
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,22 +14,24 @@ import (
 func TestPanicWhenDestIsNotPointer(t *testing.T) {
 	defer func() { recover() }()
 	source, dest := SourceTypeA{}, DestTypeA{}
-	Map(source, dest)
+	err := Map(source, dest)
 
-	t.Error("Should have panicked")
+	assert.NotNilf(t, err, "Should have generated an error")
 }
 
 func TestDestinationIsUpdatedFromSource(t *testing.T) {
 	source, dest := SourceTypeA{Foo: 42}, DestTypeA{}
-	Map(source, &dest)
+	err := Map(source, &dest)
 	assert.Equal(t, 42, dest.Foo)
+	assert.Nilf(t, err, "Should not have generated an error")
 }
 
 func TestDestinationIsUpdatedFromSourceWhenSourcePassedAsPtr(t *testing.T) {
 	source, dest := SourceTypeA{42, "Bar"}, DestTypeA{}
-	Map(&source, &dest)
+	err := Map(&source, &dest)
 	assert.Equal(t, 42, dest.Foo)
 	assert.Equal(t, "Bar", dest.Bar)
+	assert.Nilf(t, err, "Should not have generated an error")
 }
 
 func TestWithNestedTypes(t *testing.T) {
@@ -41,9 +46,10 @@ func TestWithNestedTypes(t *testing.T) {
 
 	source.Baz = "Baz"
 	source.Child.Bar = "Bar"
-	Map(&source, &dest)
+	err := Map(&source, &dest)
 	assert.Equal(t, "Baz", dest.Baz)
 	assert.Equal(t, "Bar", dest.Child.Bar)
+	assert.Nilf(t, err, "Should not have generated an error")
 }
 
 func TestWithSourceSecondLevel(t *testing.T) {
@@ -53,8 +59,9 @@ func TestWithSourceSecondLevel(t *testing.T) {
 	dest := SourceTypeA{}
 
 	source.Child.Bar = "Bar"
-	Map(&source, &dest)
+	err := Map(&source, &dest)
 	assert.Equal(t, "Bar", dest.Bar)
+	assert.Nilf(t, err, "Should not have generated an error")
 }
 
 func TestWithDestSecondLevel(t *testing.T) {
@@ -64,8 +71,9 @@ func TestWithDestSecondLevel(t *testing.T) {
 	}{}
 
 	source.Bar = "Bar"
-	Map(&source, &dest)
+	err := Map(&source, &dest)
 	assert.Equal(t, "Bar", dest.Child.Bar)
+	assert.Nilf(t, err, "Should not have generated an error")
 }
 
 func TestWithSliceTypes(t *testing.T) {
@@ -79,9 +87,10 @@ func TestWithSliceTypes(t *testing.T) {
 		SourceTypeA{Foo: 1},
 		SourceTypeA{Foo: 2}}
 
-	Map(&source, &dest)
+	err := Map(&source, &dest)
 	assert.Equal(t, 1, dest.Children[0].Foo)
 	assert.Equal(t, 2, dest.Children[1].Foo)
+	assert.Nilf(t, err, "Should not have generated an error")
 }
 
 func TestWithMultiLevelSlices(t *testing.T) {
@@ -103,7 +112,8 @@ func TestWithMultiLevelSlices(t *testing.T) {
 		},
 	}
 
-	Map(&source, &dest)
+	err := Map(&source, &dest)
+	assert.Nilf(t, err, "Should not have generated an error")
 }
 
 func TestWithEmptySliceAndIncompatibleTypes(t *testing.T) {
@@ -116,8 +126,8 @@ func TestWithEmptySliceAndIncompatibleTypes(t *testing.T) {
 		Children []struct{ Bar int }
 	}{}
 
-	Map(&source, &dest)
-	t.Error("Should have panicked")
+	err := Map(&source, &dest)
+	assert.NotNilf(t, err, "Should have generated an error")
 }
 
 func TestWhenSourceIsMissingField(t *testing.T) {
@@ -128,8 +138,8 @@ func TestWhenSourceIsMissingField(t *testing.T) {
 	dest := struct {
 		A, B string
 	}{}
-	Map(&source, &dest)
-	t.Error("Should have panicked")
+	err := Map(&source, &dest)
+	assert.NotNilf(t, err, "Should have generated an error")
 }
 
 func TestWithUnnamedFields(t *testing.T) {
@@ -144,9 +154,10 @@ func TestWithUnnamedFields(t *testing.T) {
 	source.Baz = "Baz"
 	source.SourceTypeA.Foo = 42
 
-	Map(&source, &dest)
+	err := Map(&source, &dest)
 	assert.Equal(t, "Baz", dest.Baz)
 	assert.Equal(t, 42, dest.DestTypeA.Foo)
+	assert.Nilf(t, err, "Should not have generated an error")
 }
 
 func TestWithPointerFieldsNotNil(t *testing.T) {
@@ -158,8 +169,9 @@ func TestWithPointerFieldsNotNil(t *testing.T) {
 	}{}
 	source.Foo = nil
 
-	Map(&source, &dest)
+	err := Map(&source, &dest)
 	assert.Nil(t, dest.Foo)
+	assert.Nilf(t, err, "Should not have generated an error")
 }
 
 func TestWithPointerFieldsNil(t *testing.T) {
@@ -171,9 +183,10 @@ func TestWithPointerFieldsNil(t *testing.T) {
 	}{}
 	source.Foo = &SourceTypeA{Foo: 42}
 
-	Map(&source, &dest)
+	err := Map(&source, &dest)
 	assert.NotNil(t, dest.Foo)
 	assert.Equal(t, 42, dest.Foo.Foo)
+	assert.Nilf(t, err, "Should not have generated an error")
 }
 
 func TestMapFromPointerToNonPointerTypeWithData(t *testing.T) {
@@ -185,9 +198,10 @@ func TestMapFromPointerToNonPointerTypeWithData(t *testing.T) {
 	}{}
 	source.Foo = &SourceTypeA{Foo: 42}
 
-	Map(&source, &dest)
+	err := Map(&source, &dest)
 	assert.NotNil(t, dest.Foo)
 	assert.Equal(t, 42, dest.Foo.Foo)
+	assert.Nilf(t, err, "Should not have generated an error")
 }
 
 func TestMapFromPointerToNonPointerTypeWithoutData(t *testing.T) {
@@ -199,9 +213,10 @@ func TestMapFromPointerToNonPointerTypeWithoutData(t *testing.T) {
 	}{}
 	source.Foo = nil
 
-	Map(&source, &dest)
+	err := Map(&source, &dest)
 	assert.NotNil(t, dest.Foo)
 	assert.Equal(t, 0, dest.Foo.Foo)
+	assert.Nilf(t, err, "Should not have generated an error")
 }
 
 func TestMapFromPointerToAnonymousTypeToFieldName(t *testing.T) {
@@ -213,8 +228,9 @@ func TestMapFromPointerToAnonymousTypeToFieldName(t *testing.T) {
 	}{}
 	source.SourceTypeA = nil
 
-	Map(&source, &dest)
+	err := Map(&source, &dest)
 	assert.Equal(t, 0, dest.Foo)
+	assert.Nilf(t, err, "Should not have generated an error")
 }
 
 func TestMapFromPointerToNonPointerTypeWithoutDataAndIncompatibleType(t *testing.T) {
@@ -230,16 +246,16 @@ func TestMapFromPointerToNonPointerTypeWithoutDataAndIncompatibleType(t *testing
 	}{}
 	source.Foo = nil
 
-	Map(&source, &dest)
-	t.Error("Should have panicked")
+	err := Map(&source, &dest)
+	assert.NotNilf(t, err, "Should have generated an error")
 }
 
 func TestWhenUsingIncompatibleTypes(t *testing.T) {
 	defer func() { recover() }()
 	source := struct{ Foo string }{}
 	dest := struct{ Foo int }{}
-	Map(&source, &dest)
-	t.Error("Should have panicked")
+	err := Map(&source, &dest)
+	assert.NotNilf(t, err, "Should have generated an error")
 }
 
 func TestWithLooseOption(t *testing.T) {
@@ -251,9 +267,64 @@ func TestWithLooseOption(t *testing.T) {
 		Foo string
 		Bar int
 	}{}
-	MapLoose(&source, &dest)
+	err := Map(&source, &dest, Loose)
 	assert.Equal(t, dest.Foo, "Foo")
 	assert.Equal(t, dest.Bar, 0)
+	assert.Nilf(t, err, "Should not have generated an error")
+}
+
+func TestWithRequestFormOption(t *testing.T) {
+	r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("foo=bar&bar=2"))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	dest := struct {
+		Foo string
+		Bar int
+	}{}
+	err := Map(r, &dest, RequestForm)
+	assert.Equal(t, dest.Foo, "bar")
+	assert.Equal(t, dest.Bar, 2)
+	assert.Nilf(t, err, "Should not have generated an error")
+}
+
+func TestWithRequestFormOptionWithoutARequestPointer(t *testing.T) {
+	r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("testFoo=bar&bar=2"))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	dest := struct {
+		Foo string `json:"testFoo"`
+		Bar int    `json:"bar"`
+	}{}
+
+	err := Map(&r, &dest, RequestForm)
+	assert.NotNilf(t, err, "Should have generated an error")
+}
+func TestWithRequestFormJsonOption(t *testing.T) {
+	r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("testFoo=bar&bar=2"))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	dest := struct {
+		Foo string `json:"testFoo"`
+		Bar int    `json:"bar"`
+	}{}
+
+	err := Map(r, &dest, RequestFormWithJsonTag)
+	assert.Equal(t, dest.Foo, "bar")
+	assert.Equal(t, dest.Bar, 2)
+	assert.Nilf(t, err, "Should not have generated an error")
+}
+
+func TestWithRequestFormJsonOptionWithoutARequestPointer(t *testing.T) {
+	r := httptest.NewRequest(http.MethodPost, "/", strings.NewReader("testFoo=bar&bar=2"))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	dest := struct {
+		Foo string `json:"testFoo"`
+		Bar int    `json:"bar"`
+	}{}
+
+	err := Map(&r, &dest, RequestFormWithJsonTag)
+	assert.NotNilf(t, err, "Should have generated an error")
 }
 
 type SourceParent struct {

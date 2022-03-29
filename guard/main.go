@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/cjlapao/common-go/helper"
+	"github.com/cjlapao/common-go/helper/reflect_helper"
 )
 
 func FatalEmptyOrNil(value interface{}, name ...string) {
-	if helper.IsNilOrEmpty(value) {
+	if reflect_helper.IsNilOrEmpty(value) {
 		var message string
 		if len(name) == 1 {
 			message = fmt.Sprintf("Value %v of type %v cannot be nil", name[0], reflect.TypeOf(value))
@@ -22,13 +22,21 @@ func FatalEmptyOrNil(value interface{}, name ...string) {
 }
 
 func EmptyOrNil(value interface{}, name ...string) error {
-	if helper.IsNilOrEmpty(value) {
+	if reflect_helper.IsNilOrEmpty(value) {
 		var message string
 		if len(name) == 1 {
 			message = fmt.Sprintf("Value %v of type %v cannot be nil", name[0], reflect.TypeOf(value))
 		} else {
 			message = fmt.Sprintf("Value %v cannot be nil", fmt.Sprint(reflect.TypeOf(value)))
 		}
+		return errors.New(message)
+	}
+
+	return nil
+}
+
+func EmptyOrNilWithMessage(value interface{}, message string) error {
+	if reflect_helper.IsNilOrEmpty(value) {
 		return errors.New(message)
 	}
 
@@ -51,5 +59,21 @@ func IsFalse(value bool, name ...string) error {
 }
 
 func IsNill(value interface{}) bool {
-	return value == nil || reflect.ValueOf(value).IsNil()
+	switch v := value.(type) {
+	case string:
+		return v == ""
+	case bool:
+		return false
+	case int, int8, int16, int32, int64:
+		return false
+	case float32, float64:
+		return false
+	case uint, uintptr, uint8, uint16, uint32, uint64:
+		return false
+	default:
+		if reflect.ValueOf(value).Kind() == reflect.Struct {
+			return false
+		}
+		return value == nil || reflect.ValueOf(value).IsNil()
+	}
 }

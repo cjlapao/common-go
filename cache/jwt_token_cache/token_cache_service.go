@@ -4,30 +4,30 @@ import (
 	"strings"
 )
 
-var globalTokenCache *TokenCacheService
+var globalJwtTokenCache *JwtTokenCacheProvider
 
 type TokenCacheItem struct {
 	Name  string
 	Token CachedJwtToken
 }
 
-type TokenCacheService struct {
+type JwtTokenCacheProvider struct {
 	Items []TokenCacheItem
 }
 
-func New() *TokenCacheService {
-	if globalTokenCache != nil {
-		return globalTokenCache
+func New() *JwtTokenCacheProvider {
+	if globalJwtTokenCache != nil {
+		return globalJwtTokenCache
 	}
 
-	globalTokenCache = &TokenCacheService{
+	globalJwtTokenCache = &JwtTokenCacheProvider{
 		Items: make([]TokenCacheItem, 0),
 	}
 
-	return globalTokenCache
+	return globalJwtTokenCache
 }
 
-func (c *TokenCacheService) Get(name string) *CachedJwtToken {
+func (c *JwtTokenCacheProvider) Get(name string) *CachedJwtToken {
 	for _, item := range c.Items {
 		if strings.EqualFold(name, item.Name) {
 			return &item.Token
@@ -37,7 +37,7 @@ func (c *TokenCacheService) Get(name string) *CachedJwtToken {
 	return nil
 }
 
-func (c *TokenCacheService) Set(name string, token CachedJwtToken) {
+func (c *JwtTokenCacheProvider) Set(name string, token CachedJwtToken) {
 	found := false
 	for _, item := range c.Items {
 		if strings.EqualFold(name, item.Name) {

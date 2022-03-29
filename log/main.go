@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/cjlapao/common-go/constants"
 	strcolor "github.com/cjlapao/common-go/strcolor"
 )
 
 // Log Interface
 type Log interface {
 	UseTimestamp(value bool)
+	UseCorrelationId(value bool)
 	Log(format string, level Level, words ...string)
 	LogHighlight(format string, level Level, highlightColor strcolor.ColorCode, words ...string)
 	Info(format string, words ...string)
@@ -23,6 +25,7 @@ type Log interface {
 	Debug(format string, words ...string)
 	Trace(format string, words ...string)
 	Error(format string, words ...string)
+	Exception(err error, format string, words ...string)
 	LogError(message error)
 	TaskError(format string, isComplete bool, words ...string)
 	Fatal(format string, words ...string)
@@ -51,6 +54,14 @@ const (
 	Trace
 )
 
+// LogOptions Definition
+type LoggerOptions int64
+
+const (
+	WithTimestamp LoggerOptions = iota
+	WithCorrelationId
+)
+
 // Get Creates a new Logger instance
 func Get() *Logger {
 	if globalLogger == nil {
@@ -61,7 +72,7 @@ func Get() *Logger {
 		result.Loggers = []Log{}
 		result.AddCmdLogger()
 
-		debug := os.Getenv("DT_DEBUG")
+		debug := os.Getenv(constants.DEBUG_ENVIRONMENT)
 		if debug == "true" {
 			result.LogLevel = Debug
 		}
@@ -112,10 +123,33 @@ func (l *Logger) AddCmdLoggerWithTimestamp() {
 	}
 }
 
-func (l *Logger) EnableTimestamp() {
+func (l *Logger) WithDebug() *Logger {
+	l.LogLevel = Debug
+	return l
+}
+
+func (l *Logger) WithTrace() *Logger {
+	l.LogLevel = Trace
+	return l
+}
+
+func (l *Logger) WithWarning() *Logger {
+	l.LogLevel = Warning
+	return l
+}
+
+func (l *Logger) WithTimestamp() *Logger {
 	for _, logger := range l.Loggers {
 		logger.UseTimestamp(true)
 	}
+	return l
+}
+
+func (l *Logger) WithCorrelationId() *Logger {
+	for _, logger := range l.Loggers {
+		logger.UseCorrelationId(true)
+	}
+	return l
 }
 
 // Log Log information message
@@ -238,6 +272,15 @@ func (l *Logger) LogError(message error) {
 			for _, logger := range l.Loggers {
 				logger.Error(message.Error())
 			}
+		}
+	}
+}
+
+// Exception log message
+func (l *Logger) Exception(err error, format string, words ...string) {
+	if l.LogLevel >= Error {
+		for _, logger := range l.Loggers {
+			logger.Exception(err, format, words...)
 		}
 	}
 }

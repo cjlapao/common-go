@@ -14,9 +14,12 @@ import (
 	"net/http"
 
 	"github.com/cjlapao/common-go/controllers"
-	"github.com/cjlapao/common-go/executionctx"
-	"github.com/cjlapao/common-go/helper"
-	"github.com/cjlapao/common-go/identity"
+	"github.com/cjlapao/common-go/execution_context"
+	"github.com/cjlapao/common-go/helper/reflect_helper"
+	authControllers "github.com/cjlapao/common-go/identity/controllers"
+	"github.com/cjlapao/common-go/identity/database"
+	"github.com/cjlapao/common-go/identity/interfaces"
+	"github.com/cjlapao/common-go/identity/middleware"
 	logger "github.com/cjlapao/common-go/log"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -38,7 +41,7 @@ type HttpListenerOptions struct {
 // HttpListener HttpListener structure
 type HttpListener struct {
 	Router            *mux.Router
-	Services          *executionctx.ServiceProvider
+	Context           *execution_context.Context
 	Logger            *logger.Logger
 	Options           *HttpListenerOptions
 	Controllers       []controllers.Controller
@@ -60,16 +63,19 @@ func NewHttpListener() *HttpListener {
 	}
 
 	listener := HttpListener{
-		Services: executionctx.GetServiceProvider(),
-		Router:   mux.NewRouter().StrictSlash(true),
-		Servers:  make([]*http.Server, 0),
+		Context: execution_context.Get(),
+		Router:  mux.NewRouter().StrictSlash(true),
+		Servers: make([]*http.Server, 0),
 	}
 
 	listener.shutdownRequest = make(chan bool)
-	listener.Logger = listener.Services.Logger
+	listener.Logger = listener.Context.Services.Logger
 
 	listener.Controllers = make([]controllers.Controller, 0)
 	listener.DefaultAdapters = make([]controllers.Adapter, 0)
+
+	// Appending the correlationId renewal
+	listener.DefaultAdapters = append(listener.DefaultAdapters, CorrelationMiddlewareAdapter())
 
 	listener.Options = listener.getDefaultConfiguration()
 
@@ -91,12 +97,12 @@ func (l *HttpListener) AddHealthCheck() *HttpListener {
 }
 
 func (l *HttpListener) AddLogger() *HttpListener {
-	l.DefaultAdapters = append(l.DefaultAdapters, LoggerAdapter())
+	l.DefaultAdapters = append(l.DefaultAdapters, LoggerMiddlewareAdapter())
 	return l
 }
 
 func (l *HttpListener) AddJsonContent() *HttpListener {
-	l.DefaultAdapters = append(l.DefaultAdapters, JsonContentAdapter())
+	l.DefaultAdapters = append(l.DefaultAdapters, JsonContentMiddlewareAdapter())
 	return l
 }
 
@@ -105,28 +111,33 @@ func (l *HttpListener) AddDefaultHomepage() *HttpListener {
 }
 
 func (l *HttpListener) WithDefaultAuthentication() *HttpListener {
-	if l.Options.UseAuthBackend {
-		l.Logger.Info("Found MongoDB connection string, enabling MongoDb auth backend...")
-	}
-	defaultAuthControllers := identity.NewDefaultAuthorizationControllers()
-
-	l.AddController(defaultAuthControllers.Login(), "/login", "POST")
-	l.AddController(defaultAuthControllers.Validate(), "/validate", "GET")
-	l.DefaultAdapters = append([]controllers.Adapter{identity.EndAuthorizationAdapter()}, l.DefaultAdapters...)
-	l.Options.EnableAuthentication = true
-	return l
+	context := database.NewMemoryUserAdapter()
+	return l.WithAuthentication(context)
 }
 
-func (l *HttpListener) WithAuthentication(context identity.UserContext) *HttpListener {
-	if l.Options.UseAuthBackend {
-		l.Logger.Info("Found MongoDB connection string, enabling MongoDb auth backend...")
-	}
-	defaultAuthControllers := identity.NewAuthorizationControllers(context)
+func (l *HttpListener) WithAuthentication(context interfaces.UserContextAdapter) *HttpListener {
+	ctx := execution_context.Get()
+	if ctx.Authorization != nil {
+		defaultAuthControllers := authControllers.NewAuthorizationControllers(context)
 
-	l.AddController(defaultAuthControllers.Login(), "/login", "POST")
-	l.AddController(defaultAuthControllers.Validate(), "/validate", "GET")
-	l.DefaultAdapters = append([]controllers.Adapter{identity.EndAuthorizationAdapter()}, l.DefaultAdapters...)
-	l.Options.EnableAuthentication = true
+		l.AddController(defaultAuthControllers.Token(), "/auth/token", "POST")
+		l.AddController(defaultAuthControllers.Token(), "/auth/{tenantId}/token", "POST")
+		l.AddController(defaultAuthControllers.Introspection(), "/auth/token/introspect", "POST")
+		l.AddController(defaultAuthControllers.Introspection(), "/auth/{tenantId}/token/introspect", "POST")
+		l.AddAuthorizedControllerWithRoles(defaultAuthControllers.Register(), "/auth/register", []string{"_su,_admin"}, "POST")
+		l.AddAuthorizedControllerWithRoles(defaultAuthControllers.Register(), "/auth/{tenantId}/register", []string{"_su,_admin"}, "POST")
+		l.AddAuthorizedControllerWithRoles(defaultAuthControllers.Revoke(), "/auth/revoke", []string{"_su,_admin"}, "POST")
+		l.AddAuthorizedControllerWithRoles(defaultAuthControllers.Revoke(), "/auth/{tenantId}/revoke", []string{"_su,_admin"}, "POST")
+
+		l.AddController(defaultAuthControllers.Configuration(), "/auth/.well-known/openid-configuration", "GET")
+		l.AddController(defaultAuthControllers.Configuration(), "/auth/{tenantId}/.well-known/openid-configuration", "GET")
+		l.AddController(defaultAuthControllers.Jwks(), "/auth/.well-known/openid-configuration/jwks", "GET")
+		l.AddController(defaultAuthControllers.Jwks(), "/auth/{tenantId}/.well-known/openid-configuration/jwks", "GET")
+		l.DefaultAdapters = append([]controllers.Adapter{middleware.EndAuthorizationMiddlewareAdapter()}, l.DefaultAdapters...)
+		l.Options.EnableAuthentication = true
+	} else {
+		l.Logger.Error("No authorization context found, ignoring")
+	}
 	return l
 }
 
@@ -160,7 +171,37 @@ func (l *HttpListener) AddAuthorizedController(c controllers.Controller, path st
 	}
 	adapters := make([]controllers.Adapter, 0)
 	adapters = append(adapters, l.DefaultAdapters...)
-	adapters = append(adapters, identity.AuthorizationAdapter())
+	adapters = append(adapters, middleware.TokenAuthorizationMiddlewareAdapter([]string{}, []string{}))
+
+	if l.Options.ApiPrefix != "" {
+		path = l.Options.ApiPrefix + path
+	}
+
+	subRouter.HandleFunc(path,
+		controllers.Adapt(
+			http.HandlerFunc(c),
+			adapters...).ServeHTTP)
+}
+
+func (l *HttpListener) AddAuthorizedControllerWithRoles(c controllers.Controller, path string, roles []string, methods ...string) {
+	l.AddAuthorizedControllerWithRolesAndClaims(c, path, roles, []string{}, methods...)
+}
+
+func (l *HttpListener) AddAuthorizedControllerWithClaims(c controllers.Controller, path string, claims []string, methods ...string) {
+	l.AddAuthorizedControllerWithRolesAndClaims(c, path, []string{}, claims, methods...)
+}
+
+func (l *HttpListener) AddAuthorizedControllerWithRolesAndClaims(c controllers.Controller, path string, roles []string, claims []string, methods ...string) {
+	l.Controllers = append(l.Controllers, c)
+	var subRouter *mux.Router
+	if len(methods) > 0 {
+		subRouter = l.Router.Methods(methods...).Subrouter()
+	} else {
+		subRouter = l.Router.Methods("GET").Subrouter()
+	}
+	adapters := make([]controllers.Adapter, 0)
+	adapters = append(adapters, l.DefaultAdapters...)
+	adapters = append(adapters, middleware.TokenAuthorizationMiddlewareAdapter(roles, claims))
 
 	if l.Options.ApiPrefix != "" {
 		path = l.Options.ApiPrefix + path
@@ -177,7 +218,7 @@ func (l *HttpListener) Start() {
 	originsOk := handlers.AllowedOrigins([]string{"*"})
 	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"})
 
-	l.Logger.Notice("Starting %v Go Rest API v%v", l.Services.Version.Name, l.Services.Version.String())
+	l.Logger.Notice("Starting %v Go Rest API v%v", l.Context.Services.Version.Name, l.Context.Services.Version.String())
 
 	done := make(chan bool)
 
@@ -237,7 +278,6 @@ func (l *HttpListener) Start() {
 	<-done
 
 	l.Logger.Info("Server shut down successfully...")
-	// http.ListenAndServeTLS(":10001", "./ssl/local-cluster.internal.crt", "./ssl/local-cluster.internal.key", router)
 }
 
 func (l *HttpListener) WaitAndShutdown() {
@@ -269,28 +309,28 @@ func (l *HttpListener) WaitAndShutdown() {
 //region Private Methods
 func (l *HttpListener) getDefaultConfiguration() *HttpListenerOptions {
 	options := HttpListenerOptions{
-		HttpPort:                l.Services.Context.Configuration.GetString("HTTP_PORT"),
-		EnableTLS:               l.Services.Context.Configuration.GetBool("ENABLE_TLS"),
-		TLSPort:                 l.Services.Context.Configuration.GetString("TLS_PORT"),
-		TLSCertificate:          l.Services.Context.Configuration.GetBase64("TLS_CERTIFICATE"),
-		TLSPrivateKey:           l.Services.Context.Configuration.GetBase64("TLS_PRIVATE_KEY"),
-		DatabaseName:            l.Services.Context.Configuration.GetString("MONGODB_DATABASENAME"),
-		MongoDbConnectionString: l.Services.Context.Configuration.GetBase64("MONGODB_CONNECTION_STRING"),
+		HttpPort:                l.Context.Configuration.GetString("HTTP_PORT"),
+		EnableTLS:               l.Context.Configuration.GetBool("ENABLE_TLS"),
+		TLSPort:                 l.Context.Configuration.GetString("TLS_PORT"),
+		TLSCertificate:          l.Context.Configuration.GetBase64("TLS_CERTIFICATE"),
+		TLSPrivateKey:           l.Context.Configuration.GetBase64("TLS_PRIVATE_KEY"),
+		DatabaseName:            l.Context.Configuration.GetString("MONGODB_DATABASENAME"),
+		MongoDbConnectionString: l.Context.Configuration.GetBase64("MONGODB_CONNECTION_STRING"),
 	}
 
-	if helper.IsNilOrEmpty(options.HttpPort) {
+	if reflect_helper.IsNilOrEmpty(options.HttpPort) {
 		options.HttpPort = "5000"
 	}
 
-	if helper.IsNilOrEmpty(options.TLSPort) {
+	if reflect_helper.IsNilOrEmpty(options.TLSPort) {
 		options.TLSPort = "5001"
 	}
 
-	if helper.IsNilOrEmpty(options.DatabaseName) {
+	if reflect_helper.IsNilOrEmpty(options.DatabaseName) {
 		options.DatabaseName = "users"
 	}
 
-	apiPrefix := l.Services.Context.Configuration.GetString("API_PREFIX")
+	apiPrefix := l.Context.Configuration.GetString("API_PREFIX")
 	if apiPrefix == "" {
 		apiPrefix = "/"
 	}
@@ -308,7 +348,7 @@ func (l *HttpListener) getDefaultConfiguration() *HttpListenerOptions {
 
 func defaultHomepageController(w http.ResponseWriter, r *http.Request) {
 	response := DefaultHomepage{
-		CorrelationID: globalHttpListener.Services.Context.CorrelationId,
+		CorrelationID: globalHttpListener.Context.CorrelationId,
 		Timestamp:     fmt.Sprint(time.Now().Format(time.RFC850)),
 	}
 

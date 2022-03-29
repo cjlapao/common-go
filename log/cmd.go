@@ -12,6 +12,7 @@ import (
 )
 
 var useTimestamp bool
+var userCorrelationId bool
 
 // CmdLogger Command Line Logger implementation
 type CmdLogger struct{}
@@ -31,6 +32,10 @@ const (
 
 func (l *CmdLogger) UseTimestamp(value bool) {
 	useTimestamp = true
+}
+
+func (l *CmdLogger) UseCorrelationId(value bool) {
+	userCorrelationId = true
 }
 
 // Log Log information message
@@ -124,6 +129,16 @@ func (l *CmdLogger) Error(format string, words ...string) {
 	printMessage(format, "error", false, false, useTimestamp, words...)
 }
 
+// Error log message
+func (l *CmdLogger) Exception(err error, format string, words ...string) {
+	if format == "" {
+		format = err.Error()
+	} else {
+		format = format + ", err " + err.Error()
+	}
+	printMessage(format, "error", false, false, useTimestamp, words...)
+}
+
 // LogError log message
 func (l *CmdLogger) LogError(message error) {
 	if message != nil {
@@ -156,6 +171,13 @@ func printMessage(format string, level string, isTask bool, isComplete bool, use
 	if len(agentID) != 0 {
 		isPipeline = true
 	}
+	if userCorrelationId {
+		correlationId := os.Getenv("CORRELATION_ID")
+		if correlationId != "" {
+			format = "[" + correlationId + "] " + format
+		}
+	}
+
 	if useTimestamp {
 		format = fmt.Sprint(time.Now().Format(time.RFC3339)) + " " + format
 	}
@@ -182,72 +204,74 @@ func printMessage(format string, level string, isTask bool, isComplete bool, use
 
 	formatedWords := make([]interface{}, len(words))
 	for i := range words {
-		words[i] = strings.TrimSpace(words[i])
-		words[i] = strings.ReplaceAll(words[i], "\n\n", "\n")
-		if words[i][0] == 27 {
-			switch strings.ToLower(level) {
-			case "success":
-				if isPipeline {
-					words[i] += "\033[" + fmt.Sprint(SuccessColor) + "m"
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(SuccessColor) + "m"
-				}
-			case "warn":
-				if isPipeline {
-					if !isTask {
-						words[i] += "\033[" + fmt.Sprint(WarningColor) + "m"
+		if words[i] != "" {
+			words[i] = strings.TrimSpace(words[i])
+			words[i] = strings.ReplaceAll(words[i], "\n\n", "\n")
+			if words[i][0] == 27 {
+				switch strings.ToLower(level) {
+				case "success":
+					if isPipeline {
+						words[i] += "\033[" + fmt.Sprint(SuccessColor) + "m"
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(SuccessColor) + "m"
 					}
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(WarningColor) + "m"
-				}
-			case "error":
-				if isPipeline {
-					if !isTask {
-						words[i] += "\033[" + fmt.Sprint(ErrorColor) + "m"
+				case "warn":
+					if isPipeline {
+						if !isTask {
+							words[i] += "\033[" + fmt.Sprint(WarningColor) + "m"
+						}
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(WarningColor) + "m"
 					}
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(ErrorColor) + "m"
+				case "error":
+					if isPipeline {
+						if !isTask {
+							words[i] += "\033[" + fmt.Sprint(ErrorColor) + "m"
+						}
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(ErrorColor) + "m"
+					}
+				case "debug":
+					if isPipeline {
+						words[i] += "\033[" + fmt.Sprint(DebugColor) + "m"
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(DebugColor) + "m"
+					}
+				case "trace":
+					if isPipeline {
+						words[i] += "\033[" + fmt.Sprint(TraceColor) + "m"
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(TraceColor) + "m"
+					}
+				case "info":
+					if isPipeline {
+						words[i] += "\033[" + fmt.Sprint(InfoColor) + "m"
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(InfoColor) + "m"
+					}
+				case "notice":
+					if isPipeline {
+						words[i] += "\033[" + fmt.Sprint(NoticeColor) + "m"
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(NoticeColor) + "m"
+					}
+				case "command":
+					if isPipeline {
+						words[i] += "\033[" + fmt.Sprint(CommandColor) + "m"
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(CommandColor) + "m"
+					}
+				case "disabled":
+					if isPipeline {
+						words[i] += "\033[" + fmt.Sprint(DisabledColor) + "m"
+					} else {
+						words[i] += "\u001b[" + fmt.Sprint(DisabledColor) + "m"
+					}
 				}
-			case "debug":
-				if isPipeline {
-					words[i] += "\033[" + fmt.Sprint(DebugColor) + "m"
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(DebugColor) + "m"
-				}
-			case "trace":
-				if isPipeline {
-					words[i] += "\033[" + fmt.Sprint(TraceColor) + "m"
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(TraceColor) + "m"
-				}
-			case "info":
-				if isPipeline {
-					words[i] += "\033[" + fmt.Sprint(InfoColor) + "m"
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(InfoColor) + "m"
-				}
-			case "notice":
-				if isPipeline {
-					words[i] += "\033[" + fmt.Sprint(NoticeColor) + "m"
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(NoticeColor) + "m"
-				}
-			case "command":
-				if isPipeline {
-					words[i] += "\033[" + fmt.Sprint(CommandColor) + "m"
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(CommandColor) + "m"
-				}
-			case "disabled":
-				if isPipeline {
-					words[i] += "\033[" + fmt.Sprint(DisabledColor) + "m"
-				} else {
-					words[i] += "\u001b[" + fmt.Sprint(DisabledColor) + "m"
-				}
+				formatedWords[i] = words[i]
+			} else {
+				formatedWords[i] = words[i]
 			}
-			formatedWords[i] = words[i]
-		} else {
-			formatedWords[i] = words[i]
 		}
 	}
 

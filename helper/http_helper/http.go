@@ -1,13 +1,18 @@
 package http_helper
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
+	"reflect"
 	"strconv"
+	"strings"
 
+	"github.com/cjlapao/common-go/automapper"
 	"github.com/cjlapao/common-go/helper"
 	"github.com/cjlapao/common-go/language"
 )
@@ -57,6 +62,30 @@ func GetHttpRequestQueryValue(r *http.Request, key string) (interface{}, error) 
 	return keyValue, nil
 }
 
+func GetHttpRequestPaginationQuery(r *http.Request) (skip int64, top int64, sortField string, sortOrder string) {
+	sort := GetHttpRequestStrValue(r, "$orderby")
+	sortArr := strings.Split(sort, " ")
+	if len(sortArr) == 2 {
+		sortField = sortArr[0]
+		sortOrder = sortArr[1]
+	}
+
+	top = GetHttpRequestIntValue(r, "$top")
+	skip = GetHttpRequestIntValue(r, "$skip")
+	return skip, top, sortField, sortOrder
+}
+
+func GetHttpRequestFilterQuery(r *http.Request) (field string, value string) {
+	filter := GetHttpRequestStrValue(r, "$filterby")
+	filterArr := strings.Split(filter, " ")
+	if len(filterArr) == 2 {
+		field = filterArr[0]
+		value = filterArr[1]
+	}
+
+	return field, value
+}
+
 func GetHttpRequestIntValue(r *http.Request, key string) int64 {
 	queryValue, err := GetHttpRequestQueryValue(r, key)
 	if err != nil {
@@ -94,4 +123,52 @@ func GetHttpRequestBoolValue(r *http.Request, key string, defValue bool) bool {
 	}
 
 	return value
+}
+
+func GetAuthorizationToken(request http.Header) (string, bool) {
+	authHeader := strings.Split(request.Get("Authorization"), "Bearer ")
+	if len(authHeader) != 2 {
+		return "", false
+	}
+
+	return authHeader[1], true
+}
+
+func MapRequestBody(request *http.Request, dest interface{}) error {
+	var destType = reflect.TypeOf(dest)
+	if destType.Kind() != reflect.Ptr {
+		return errors.New("dest must be a pointer type")
+	}
+
+	request.ParseForm()
+	if len(request.Form) > 0 {
+		err := automapper.Map(request, dest, automapper.RequestFormWithJsonTag)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	request.ParseMultipartForm(0)
+	if len(request.Form) > 0 {
+		err := automapper.Map(request, dest, automapper.RequestFormWithJsonTag)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	bodyArr, err := ioutil.ReadAll(request.Body)
+	if err != nil {
+		return err
+	}
+	if len(bodyArr) == 0 {
+		return errors.New("body is empty")
+	}
+
+	err = json.Unmarshal(bodyArr, &dest)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
