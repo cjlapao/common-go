@@ -126,12 +126,22 @@ func GetHttpRequestBoolValue(r *http.Request, key string, defValue bool) bool {
 }
 
 func GetAuthorizationToken(request http.Header) (string, bool) {
-	authHeader := strings.Split(request.Get("Authorization"), "Bearer ")
+	authHeader := strings.Split(request.Get("authorization"), "Bearer ")
 	if len(authHeader) != 2 {
 		return "", false
 	}
 
 	return authHeader[1], true
+}
+
+func GetContentType(request http.Header) string {
+	contentTypeRaw := request.Get("content-type")
+	parts := strings.Split(contentTypeRaw, ";")
+	if len(parts) > 0 {
+		return parts[0]
+	}
+
+	return contentTypeRaw
 }
 
 func MapRequestBody(request *http.Request, dest interface{}) error {
