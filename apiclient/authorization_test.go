@@ -3,6 +3,8 @@ package apiclient
 import (
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewApiKeyAuth(t *testing.T) {
@@ -47,6 +49,18 @@ func TestNewApiKeyAuth(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewStandardApiKey(t *testing.T) {
+	// Arrange
+	expected := ApiClientAuthorization{
+		Key:   "ApiKey",
+		Value: "someKey",
+	}
+
+	result := NewStandardApiKeyAuth("someKey")
+
+	assert.Equalf(t, expected.String(), result.String(), "NewStandardApiKeyAuth() = %v, want %v", result.String(), expected.String())
 }
 
 func TestNewBearerTokenAuth(t *testing.T) {

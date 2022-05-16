@@ -22,6 +22,10 @@ func NewApiKeyAuth(key string, value string) *ApiClientAuthorization {
 	}
 }
 
+func NewStandardApiKeyAuth(value string) *ApiClientAuthorization {
+	return NewApiKeyAuth("ApiKey", value)
+}
+
 func NewBearerTokenAuth(token string) *ApiClientAuthorization {
 	return &ApiClientAuthorization{
 		Key:   "Bearer",

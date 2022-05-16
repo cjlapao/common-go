@@ -80,3 +80,21 @@ func (s *ApiClientBodyType) UnmarshalYAML(b []byte) error {
 	*s = toApiClientBodyTypeID[j]
 	return nil
 }
+
+func (s *ApiClientBodyType) GetHeader() (key string, value string) {
+	key = "Content-Type"
+	switch *s {
+	case JSON:
+		value = "application/json"
+	case TEXT:
+		value = "plain/text"
+	case HTML:
+		value = "text/html"
+	case FORM_DATA:
+		value = "multipart/form-data;"
+	case X_WWW_FORM_URLENCODED:
+		value = "application/x-www-form-urlencoded"
+	}
+
+	return key, value
+}
