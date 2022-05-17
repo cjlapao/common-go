@@ -85,7 +85,7 @@ func (s *ApiClientBodyType) GetHeader() (key string, value string) {
 	key = "Content-Type"
 	switch *s {
 	case JSON:
-		value = "application/json"
+		value = "application/json;charset=UTF-8"
 	case TEXT:
 		value = "plain/text"
 	case HTML:

@@ -51,16 +51,14 @@ func (c *DefaultApiClient) SendRequest(options ApiClientOptions) (*http.Response
 		request, err = http.NewRequest(options.Method.String(), url.String(), nil)
 	} else {
 		request, err = http.NewRequest(options.Method.String(), url.String(), options.Body.Get())
-		switch options.Body.Type {
-		// case JSON:
-		// 	request.he
-		// }
+		key, value := options.Body.Type.GetHeader()
+		request.Header.Add(key, value)
 	}
 
-	request.Header = make(http.Header)
-
 	if guard.EmptyOrNil(options.Authorization); err == nil {
-		request.Header["Authorization"] = []string{options.Authorization.String()}
+		if options.Authorization.Value != "" {
+			request.Header["Authorization"] = []string{options.Authorization.String()}
+		}
 	}
 
 	response, err := c.Client.Do(request)

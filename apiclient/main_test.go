@@ -220,7 +220,8 @@ func TestDefaultApiClient_SendRequestWithPostAndXUrlEncodedBody(t *testing.T) {
 		pError := r.ParseForm()
 		assert.Nilf(t, pError, "parsing form should not contain errors")
 
-		json.NewDecoder(r.Body).Decode(&r.Form)
+		body.Password = r.Form.Get("password")
+		body.Username = r.Form.Get("username")
 
 		assert.Equalf(t, "POST", r.Method, "Expected to be POST method")
 		assert.Equalf(t, "/foo/bar", r.URL.String(), "Expected url to be /foo/bar")
@@ -241,7 +242,7 @@ func TestDefaultApiClient_SendRequestWithPostAndXUrlEncodedBody(t *testing.T) {
 		Protocol: "http",
 		Host:     server.URL,
 		Path:     "/foo/bar",
-		Body:     *NewApiClientBody().WithFormValue("username", "testuser").WithFormValue("password", "testPassword"),
+		Body:     *NewApiClientBody().WithFormValue("username", "testUser").WithFormValue("password", "testPassword"),
 	})
 
 	responseBodyRaw, errBody := ioutil.ReadAll(response.Body)
