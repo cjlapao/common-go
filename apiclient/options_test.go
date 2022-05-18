@@ -3,7 +3,10 @@ package apiclient
 import (
 	"net/url"
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_URL(t *testing.T) {
@@ -160,8 +163,25 @@ func Test_URL(t *testing.T) {
 				return
 			}
 
-			if !reflect.DeepEqual(got.Host, tt.want.Host) || !reflect.DeepEqual(got.Scheme, tt.want.Scheme) || !reflect.DeepEqual(got.RawQuery, tt.want.RawQuery) {
+			if !reflect.DeepEqual(got.Host, tt.want.Host) || !reflect.DeepEqual(got.Scheme, tt.want.Scheme) {
 				t.Errorf("ApiClientOptions.Url() = %v, want %v", got, tt.want)
+			}
+
+			gotParts := strings.Split(got.RawQuery, "&")
+			wantParts := strings.Split(tt.want.RawQuery, "&")
+
+			assert.Equal(t, len(wantParts), len(gotParts))
+			for _, wantPart := range wantParts {
+				found := false
+				for _, gotPart := range gotParts {
+					if wantPart == gotPart {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("ApiClientOptions.Url().Part = %v, not found", wantPart)
+				}
 			}
 		})
 	}

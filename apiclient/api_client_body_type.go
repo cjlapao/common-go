@@ -8,12 +8,12 @@ import (
 type ApiClientBodyType int
 
 const (
-	NONE ApiClientBodyType = iota + 1
-	JSON
-	TEXT
-	HTML
-	FORM_DATA
-	X_WWW_FORM_URLENCODED
+	BODY_TYPE_NONE ApiClientBodyType = iota + 1
+	BODY_TYPE_JSON
+	BODY_TYPE_TEXT
+	BODY_TYPE_HTML
+	BODY_TYPE_FORM_DATA
+	BODY_TYPE_X_WWW_FORM_URLENCODED
 	GRAPHQL
 )
 
@@ -26,22 +26,22 @@ func (s ApiClientBodyType) FromString(key string) ApiClientBodyType {
 }
 
 var toApiClientBodyTypeString = map[ApiClientBodyType]string{
-	NONE:                  "NONE",
-	JSON:                  "JSON",
-	TEXT:                  "TEXT",
-	HTML:                  "HTML",
-	FORM_DATA:             "FORM-DATA",
-	X_WWW_FORM_URLENCODED: "X-WWW-FORM-URLENCODED",
-	GRAPHQL:               "GRAPHQL",
+	BODY_TYPE_NONE:                  "NONE",
+	BODY_TYPE_JSON:                  "JSON",
+	BODY_TYPE_TEXT:                  "TEXT",
+	BODY_TYPE_HTML:                  "HTML",
+	BODY_TYPE_FORM_DATA:             "FORM-DATA",
+	BODY_TYPE_X_WWW_FORM_URLENCODED: "X-WWW-FORM-URLENCODED",
+	GRAPHQL:                         "GRAPHQL",
 }
 
 var toApiClientBodyTypeID = map[string]ApiClientBodyType{
-	"NONE":                  NONE,
-	"JSON":                  JSON,
-	"TEXT":                  TEXT,
-	"HTML":                  HTML,
-	"FORM-DATA":             FORM_DATA,
-	"X-WWW-FORM-URLENCODED": X_WWW_FORM_URLENCODED,
+	"NONE":                  BODY_TYPE_NONE,
+	"JSON":                  BODY_TYPE_JSON,
+	"TEXT":                  BODY_TYPE_TEXT,
+	"HTML":                  BODY_TYPE_HTML,
+	"FORM-DATA":             BODY_TYPE_FORM_DATA,
+	"X-WWW-FORM-URLENCODED": BODY_TYPE_X_WWW_FORM_URLENCODED,
 	"GRAPHQL":               GRAPHQL,
 }
 
@@ -63,16 +63,13 @@ func (s *ApiClientBodyType) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func (s ApiClientBodyType) MarshalYAML() ([]byte, error) {
-	buffer := bytes.NewBufferString(`"`)
-	buffer.WriteString(toApiClientBodyTypeString[s])
-	buffer.WriteString(`"`)
-	return buffer.Bytes(), nil
+func (s ApiClientBodyType) MarshalYAML() (interface{}, error) {
+	return toApiClientBodyTypeString[s], nil
 }
 
-func (s *ApiClientBodyType) UnmarshalYAML(b []byte) error {
-	var j string
-	err := json.Unmarshal(b, &j)
+func (s *ApiClientBodyType) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	j := ""
+	err := unmarshal(&j)
 	if err != nil {
 		return err
 	}
@@ -84,15 +81,15 @@ func (s *ApiClientBodyType) UnmarshalYAML(b []byte) error {
 func (s *ApiClientBodyType) GetHeader() (key string, value string) {
 	key = "Content-Type"
 	switch *s {
-	case JSON:
+	case BODY_TYPE_JSON:
 		value = "application/json;charset=UTF-8"
-	case TEXT:
+	case BODY_TYPE_TEXT:
 		value = "plain/text"
-	case HTML:
+	case BODY_TYPE_HTML:
 		value = "text/html"
-	case FORM_DATA:
-		value = "multipart/form-data;"
-	case X_WWW_FORM_URLENCODED:
+	case BODY_TYPE_FORM_DATA:
+		value = "multipart/form-data"
+	case BODY_TYPE_X_WWW_FORM_URLENCODED:
 		value = "application/x-www-form-urlencoded"
 	}
 

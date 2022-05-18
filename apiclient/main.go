@@ -51,7 +51,8 @@ func (c *DefaultApiClient) SendRequest(options ApiClientOptions) (*http.Response
 		request, err = http.NewRequest(options.Method.String(), url.String(), nil)
 	} else {
 		request, err = http.NewRequest(options.Method.String(), url.String(), options.Body.Get())
-		key, value := options.Body.Type.GetHeader()
+
+		key, value := options.Body.GetHeader()
 		request.Header.Add(key, value)
 	}
 

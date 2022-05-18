@@ -48,7 +48,7 @@ func TestGetAuthorizationToken(t *testing.T) {
 		{
 			"tes",
 			http.Header{
-				"authorization": {"Bearer 12"},
+				"Authorization": {"Bearer 12"},
 			},
 			"12",
 			true,
