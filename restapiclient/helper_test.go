@@ -1,4 +1,4 @@
-package apiclient
+package restapiclient
 
 import (
 	"net/http"
@@ -25,7 +25,7 @@ func TestHelper_DownloadFile_WithCorrectResponse(t *testing.T) {
 
 	defer server.Close()
 
-	api := DefaultApiClient{
+	api := DefaultRestApiClient{
 		Client: server.Client(),
 	}
 
@@ -35,12 +35,9 @@ func TestHelper_DownloadFile_WithCorrectResponse(t *testing.T) {
 
 	helper.WriteToFile(testFileContent, testFileName)
 
-	api.SendRequest(ApiClientOptions{
-		Method:   POST,
-		Protocol: "http",
-		Host:     server.URL,
-		Path:     "/foo/bar",
-		Body:     *NewApiClientBody().FormData().WithFile("file", testFileName),
+	api.SendRequest(RestApiClientRequest{
+		Method: API_METHOD_POST,
+		Body:   NewRestApiClientBody().FormData().WithFile("file", testFileName),
 	})
 
 	helper.DeleteFile(testFileName)
@@ -59,7 +56,7 @@ func TestHelper_DownloadFile_WithNoUploadedFile_NilIsReturned(t *testing.T) {
 
 	defer server.Close()
 
-	api := DefaultApiClient{
+	api := DefaultRestApiClient{
 		Client: server.Client(),
 	}
 
@@ -69,12 +66,9 @@ func TestHelper_DownloadFile_WithNoUploadedFile_NilIsReturned(t *testing.T) {
 
 	helper.WriteToFile(testFileContent, testFileName)
 
-	api.SendRequest(ApiClientOptions{
-		Method:   POST,
-		Protocol: "http",
-		Host:     server.URL,
-		Path:     "/foo/bar",
-		Body:     *NewApiClientBody(),
+	api.SendRequest(RestApiClientRequest{
+		Method: API_METHOD_POST,
+		Body:   NewRestApiClientBody(),
 	})
 
 	helper.DeleteFile(testFileName)
@@ -93,7 +87,7 @@ func Test_Helper_DownloadFile_WithNoFileKey_NilIsReturned(t *testing.T) {
 
 	defer server.Close()
 
-	api := DefaultApiClient{
+	api := DefaultRestApiClient{
 		Client: server.Client(),
 	}
 
@@ -103,12 +97,9 @@ func Test_Helper_DownloadFile_WithNoFileKey_NilIsReturned(t *testing.T) {
 
 	helper.WriteToFile(testFileContent, testFileName)
 
-	api.SendRequest(ApiClientOptions{
-		Method:   POST,
-		Protocol: "http",
-		Host:     server.URL,
-		Path:     "/foo/bar",
-		Body:     *NewApiClientBody().FormData().WithFile("other_file", testFileName),
+	api.SendRequest(RestApiClientRequest{
+		Method: API_METHOD_POST,
+		Body:   NewRestApiClientBody().FormData().WithFile("other_file", testFileName),
 	})
 
 	helper.DeleteFile(testFileName)

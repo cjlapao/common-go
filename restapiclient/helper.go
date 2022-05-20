@@ -1,4 +1,4 @@
-package apiclient
+package restapiclient
 
 import (
 	"bytes"

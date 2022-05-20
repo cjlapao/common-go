@@ -1,4 +1,4 @@
-package apiclient
+package restapiclient
 
 import (
 	"encoding/json"
@@ -8,10 +8,10 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func Test_ApiBodyTest_GetHeader(t *testing.T) {
+func Test_RestApiClientBodyType_GetHeader(t *testing.T) {
 	tests := []struct {
 		name      string
-		bodyType  ApiClientBodyType
+		bodyType  RestApiClientBodyType
 		wantKey   string
 		wantValue string
 	}{
@@ -45,15 +45,15 @@ func Test_ApiBodyTest_GetHeader(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			key, value := tt.bodyType.GetHeader()
 
-			assert.Equalf(t, tt.wantKey, key, "ApiClientBodyType.Key = %v, want %v", tt.wantKey, key)
-			assert.Equalf(t, tt.wantValue, value, "ApiClientBodyType.Value = %v, want %v", tt.wantValue, value)
+			assert.Equalf(t, tt.wantKey, key, "RestApiClientBodyType.Key = %v, want %v", tt.wantKey, key)
+			assert.Equalf(t, tt.wantValue, value, "RestApiClientBodyType.Value = %v, want %v", tt.wantValue, value)
 		})
 	}
 }
 
-func Test_ApiBodyTest_UnmarshalJson(t *testing.T) {
+func Test_RestApiClientBodyType_UnmarshalJson(t *testing.T) {
 	testObj := struct {
-		SomeType ApiClientBodyType `json:"someType"`
+		SomeType RestApiClientBodyType `json:"someType"`
 	}{}
 
 	plainJson := "{ \"someType\": \"FORM-DATA\" }"
@@ -63,9 +63,9 @@ func Test_ApiBodyTest_UnmarshalJson(t *testing.T) {
 	assert.Equalf(t, testObj.SomeType, BODY_TYPE_FORM_DATA, "testObj.SomeType = %v, want %v", testObj.SomeType, BODY_TYPE_FORM_DATA)
 }
 
-func Test_ApiBodyTest_MarshalJson(t *testing.T) {
+func Test_RestApiClientBodyType_MarshalJson(t *testing.T) {
 	testObj := struct {
-		SomeType ApiClientBodyType `json:"someType"`
+		SomeType RestApiClientBodyType `json:"someType"`
 	}{
 		SomeType: BODY_TYPE_FORM_DATA,
 	}
@@ -77,9 +77,9 @@ func Test_ApiBodyTest_MarshalJson(t *testing.T) {
 	assert.Equalf(t, string(plainJson), expectedPlainJson, "json = %v, want %v", string(plainJson), expectedPlainJson)
 }
 
-func Test_ApiBodyTest_UnmarshalYaml(t *testing.T) {
+func Test_RestApiClientBodyType_UnmarshalYaml(t *testing.T) {
 	testObj := struct {
-		SomeType ApiClientBodyType `yaml:"someType"`
+		SomeType RestApiClientBodyType `yaml:"someType"`
 	}{}
 
 	plainYaml := "someType: FORM-DATA"
@@ -90,9 +90,9 @@ func Test_ApiBodyTest_UnmarshalYaml(t *testing.T) {
 	assert.Equalf(t, testObj.SomeType, BODY_TYPE_FORM_DATA, "testObj.SomeType = %v, want %v", testObj.SomeType, BODY_TYPE_FORM_DATA)
 }
 
-func Test_ApiBodyTest_MarshalYaml(t *testing.T) {
+func Test_RestApiClientBodyType_MarshalYaml(t *testing.T) {
 	testObj := struct {
-		SomeType ApiClientBodyType `yaml:"someType"`
+		SomeType RestApiClientBodyType `yaml:"someType"`
 	}{
 		SomeType: BODY_TYPE_FORM_DATA,
 	}
@@ -102,4 +102,11 @@ func Test_ApiBodyTest_MarshalYaml(t *testing.T) {
 
 	assert.Nil(t, err)
 	assert.Equalf(t, string(plainYaml), expectedPlainYaml, "yaml = %v, want %v", string(plainYaml), expectedPlainYaml)
+}
+
+func Test_RestApiClientBodyType_FromString(t *testing.T) {
+	var bodyType RestApiClientBodyType
+	bodyTypeString := bodyType.FromString("JSON")
+
+	assert.Equalf(t, BODY_TYPE_JSON, bodyTypeString, "RestApiClientBodyType() = %v, want %v", bodyTypeString, BODY_TYPE_JSON)
 }

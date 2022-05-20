@@ -1,4 +1,4 @@
-package apiclient
+package restapiclient
 
 import (
 	"reflect"
@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestNewApiKeyAuth(t *testing.T) {
+func Test_RestApiClientAuthorization_NewApiKeyAuth(t *testing.T) {
 
 	type args struct {
 		key   string
@@ -17,7 +17,7 @@ func TestNewApiKeyAuth(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *ApiClientAuthorization
+		want *RestApiClientAuthorization
 	}{
 		{
 			"ApiKey authentication With Defined Key",
@@ -25,7 +25,7 @@ func TestNewApiKeyAuth(t *testing.T) {
 				"SomeApiKey",
 				"SomeRandomKey",
 			},
-			&ApiClientAuthorization{
+			&RestApiClientAuthorization{
 				"SomeApiKey",
 				"SomeRandomKey",
 			},
@@ -36,7 +36,7 @@ func TestNewApiKeyAuth(t *testing.T) {
 				"",
 				"SomeRandomKey",
 			},
-			&ApiClientAuthorization{
+			&RestApiClientAuthorization{
 				"ApiKey",
 				"SomeRandomKey",
 			},
@@ -51,9 +51,9 @@ func TestNewApiKeyAuth(t *testing.T) {
 	}
 }
 
-func TestNewStandardApiKey(t *testing.T) {
+func Test_RestApiClientAuthorization_NewStandardApiKey(t *testing.T) {
 	// Arrange
-	expected := ApiClientAuthorization{
+	expected := RestApiClientAuthorization{
 		Key:   "ApiKey",
 		Value: "someKey",
 	}
@@ -63,21 +63,21 @@ func TestNewStandardApiKey(t *testing.T) {
 	assert.Equalf(t, expected.String(), result.String(), "NewStandardApiKeyAuth() = %v, want %v", result.String(), expected.String())
 }
 
-func TestNewBearerTokenAuth(t *testing.T) {
+func Test_RestApiClientAuthorization_NewBearerTokenAuth(t *testing.T) {
 	type args struct {
 		token string
 	}
 	tests := []struct {
 		name string
 		args args
-		want *ApiClientAuthorization
+		want *RestApiClientAuthorization
 	}{
 		{
 			"Bearer token Authentication",
 			args{
 				token: "somebase64jwt",
 			},
-			&ApiClientAuthorization{
+			&RestApiClientAuthorization{
 				Key:   "Bearer",
 				Value: "somebase64jwt",
 			},
@@ -92,7 +92,7 @@ func TestNewBearerTokenAuth(t *testing.T) {
 	}
 }
 
-func TestNewBasicAuth(t *testing.T) {
+func Test_RestApiClientAuthorization_NewBasicAuth(t *testing.T) {
 	type args struct {
 		username string
 		password string
@@ -100,7 +100,7 @@ func TestNewBasicAuth(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *ApiClientAuthorization
+		want *RestApiClientAuthorization
 	}{
 		{
 			"Basic Authentication",
@@ -108,7 +108,7 @@ func TestNewBasicAuth(t *testing.T) {
 				username: "fakeUser",
 				password: "fakePassword",
 			},
-			&ApiClientAuthorization{
+			&RestApiClientAuthorization{
 				Key:   "Basic",
 				Value: "ZmFrZVVzZXI6ZmFrZVBhc3N3b3Jk",
 			},
@@ -121,4 +121,14 @@ func TestNewBasicAuth(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test__RestApiClientAuthorization_GetHeader(t *testing.T) {
+	auth := NewBearerTokenAuth("testToken")
+
+	key, value := auth.GetHeader()
+
+	assert.Equalf(t, "Authorization", key, "Key Header = %v, want \"Authorization\"", key)
+	assert.Equal(t, 1, len(value))
+	assert.Equal(t, "Bearer testToken", value[0])
 }

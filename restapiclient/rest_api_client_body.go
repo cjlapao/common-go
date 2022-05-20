@@ -1,4 +1,4 @@
-package apiclient
+package restapiclient
 
 import (
 	"bytes"
@@ -10,8 +10,8 @@ import (
 	"github.com/cjlapao/common-go/helper"
 )
 
-type ApiClientBody struct {
-	Type    ApiClientBodyType
+type RestApiClientBody struct {
+	Type    RestApiClientBodyType
 	Files   map[string]map[string][]byte
 	Fields  url.Values
 	Raw     []byte
@@ -19,8 +19,8 @@ type ApiClientBody struct {
 	mWriter *multipart.Writer
 }
 
-func NewApiClientBody() *ApiClientBody {
-	result := ApiClientBody{
+func NewRestApiClientBody() *RestApiClientBody {
+	result := RestApiClientBody{
 		Type:   BODY_TYPE_NONE,
 		Raw:    make([]byte, 0),
 		Fields: make(url.Values),
@@ -30,8 +30,8 @@ func NewApiClientBody() *ApiClientBody {
 	return &result
 }
 
-func NewApiClientJsonBody(value []byte) *ApiClientBody {
-	result := NewApiClientBody()
+func NewRestApiClientJsonBody(value []byte) *RestApiClientBody {
+	result := NewRestApiClientBody()
 	result.Type = BODY_TYPE_JSON
 
 	result.Raw = value
@@ -39,7 +39,7 @@ func NewApiClientJsonBody(value []byte) *ApiClientBody {
 	return result
 }
 
-func (body *ApiClientBody) IsValid() bool {
+func (body *RestApiClientBody) IsValid() bool {
 	if body.error == nil {
 		return true
 	} else {
@@ -47,7 +47,7 @@ func (body *ApiClientBody) IsValid() bool {
 	}
 }
 
-func (body *ApiClientBody) Get() *bytes.Buffer {
+func (body *RestApiClientBody) Get() *bytes.Buffer {
 	switch body.Type {
 	case BODY_TYPE_JSON:
 		return bytes.NewBuffer(body.Raw)
@@ -64,7 +64,7 @@ func (body *ApiClientBody) Get() *bytes.Buffer {
 	}
 }
 
-func (body *ApiClientBody) GetHeader() (key string, value string) {
+func (body *RestApiClientBody) GetHeader() (key string, value string) {
 	key = "Content-Type"
 	switch body.Type {
 	case BODY_TYPE_JSON:
@@ -85,7 +85,7 @@ func (body *ApiClientBody) GetHeader() (key string, value string) {
 	return key, value
 }
 
-func (body *ApiClientBody) UrlEncoded() *ApiClientBody {
+func (body *RestApiClientBody) UrlEncoded() *RestApiClientBody {
 	if body.Type != BODY_TYPE_X_WWW_FORM_URLENCODED {
 		body.Type = BODY_TYPE_X_WWW_FORM_URLENCODED
 	}
@@ -93,7 +93,7 @@ func (body *ApiClientBody) UrlEncoded() *ApiClientBody {
 	return body
 }
 
-func (body *ApiClientBody) FormData() *ApiClientBody {
+func (body *RestApiClientBody) FormData() *RestApiClientBody {
 	if body.Type != BODY_TYPE_FORM_DATA {
 		body.Type = BODY_TYPE_FORM_DATA
 	}
@@ -101,7 +101,7 @@ func (body *ApiClientBody) FormData() *ApiClientBody {
 	return body
 }
 
-func (body *ApiClientBody) Json(content []byte) *ApiClientBody {
+func (body *RestApiClientBody) Json(content []byte) *RestApiClientBody {
 	if body.Type != BODY_TYPE_JSON {
 		body.Type = BODY_TYPE_JSON
 	}
@@ -110,7 +110,7 @@ func (body *ApiClientBody) Json(content []byte) *ApiClientBody {
 	return body
 }
 
-func (body *ApiClientBody) Text(content []byte) *ApiClientBody {
+func (body *RestApiClientBody) Text(content []byte) *RestApiClientBody {
 	if body.Type != BODY_TYPE_TEXT {
 		body.Type = BODY_TYPE_TEXT
 	}
@@ -119,7 +119,7 @@ func (body *ApiClientBody) Text(content []byte) *ApiClientBody {
 	return body
 }
 
-func (body *ApiClientBody) Html(content []byte) *ApiClientBody {
+func (body *RestApiClientBody) Html(content []byte) *RestApiClientBody {
 	if body.Type != BODY_TYPE_HTML {
 		body.Type = BODY_TYPE_HTML
 	}
@@ -128,7 +128,7 @@ func (body *ApiClientBody) Html(content []byte) *ApiClientBody {
 	return body
 }
 
-func (body *ApiClientBody) WithFile(key string, filepath string) *ApiClientBody {
+func (body *RestApiClientBody) WithFile(key string, filepath string) *RestApiClientBody {
 	if helper.FileExists(filepath) {
 		var fileContent []byte
 
@@ -151,7 +151,7 @@ func (body *ApiClientBody) WithFile(key string, filepath string) *ApiClientBody 
 	return body
 }
 
-func (body *ApiClientBody) WithField(key string, value string) *ApiClientBody {
+func (body *RestApiClientBody) WithField(key string, value string) *RestApiClientBody {
 	if !body.Fields.Has(key) {
 		body.Fields.Add(key, value)
 	} else {
@@ -161,7 +161,7 @@ func (body *ApiClientBody) WithField(key string, value string) *ApiClientBody {
 	return body
 }
 
-func (body *ApiClientBody) processUrlEncodedData() *bytes.Buffer {
+func (body *RestApiClientBody) processUrlEncodedData() *bytes.Buffer {
 	if len(body.Fields) == 0 {
 		return nil
 	}
@@ -170,7 +170,7 @@ func (body *ApiClientBody) processUrlEncodedData() *bytes.Buffer {
 	return bytes.NewBuffer(body.Raw)
 }
 
-func (body *ApiClientBody) processFormData() *bytes.Buffer {
+func (body *RestApiClientBody) processFormData() *bytes.Buffer {
 	if len(body.Fields) == 0 && len(body.Files) == 0 {
 		return nil
 	}

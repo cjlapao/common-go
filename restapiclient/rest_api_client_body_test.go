@@ -1,4 +1,4 @@
-package apiclient
+package restapiclient
 
 import (
 	"strings"
@@ -8,46 +8,46 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_ApiClientBody_NewApiClient_CreatesEmptyBody(t *testing.T) {
+func Test_RestApiClientBody_NewRestApiClient_CreatesEmptyBody(t *testing.T) {
 
-	body := NewApiClientBody()
+	body := NewRestApiClientBody()
 
 	assert.NotNil(t, body)
 	assert.Equalf(t, body.Type, BODY_TYPE_NONE, "body.Type = %v, want %v", body.Type, BODY_TYPE_NONE)
 }
 
-func Test_ApiClientBody_NewApiClientWithJsonBody_CreatesJsonBody(t *testing.T) {
+func Test_RestApiClientBody_NewRestApiClientWithJsonBody_CreatesJsonBody(t *testing.T) {
 	bodyContent := "{ \"someJson\": \"someData\" }"
 
-	body := NewApiClientBody().Json([]byte(bodyContent))
+	body := NewRestApiClientBody().Json([]byte(bodyContent))
 
 	assert.NotNil(t, body)
 	assert.Equalf(t, body.Type, BODY_TYPE_JSON, "body.Type = %v, want %v", body.Type, BODY_TYPE_JSON)
 	assert.Equalf(t, bodyContent, string(body.Raw), "body.raw = %v, want %v", string(body.Raw), bodyContent)
 }
 
-func Test_ApiClientBody_NewApiClientWithTextBody_CreatesTextBody(t *testing.T) {
+func Test_RestApiClientBody_NewRestApiClientWithTextBody_CreatesTextBody(t *testing.T) {
 	bodyContent := "{ \"someJson\": \"someData\" }"
 
-	body := NewApiClientBody().Text([]byte(bodyContent))
+	body := NewRestApiClientBody().Text([]byte(bodyContent))
 
 	assert.NotNil(t, body)
 	assert.Equalf(t, body.Type, BODY_TYPE_TEXT, "body.Type = %v, want %v", body.Type, BODY_TYPE_TEXT)
 	assert.Equalf(t, bodyContent, string(body.Raw), "body.raw = %v, want %v", string(body.Raw), bodyContent)
 }
 
-func Test_ApiClientBody_NewApiClientWithHtmlBody_CreatesHtmlBody(t *testing.T) {
+func Test_RestApiClientBody_NewRestApiClientWithHtmlBody_CreatesHtmlBody(t *testing.T) {
 	bodyContent := "{ \"someJson\": \"someData\" }"
 
-	body := NewApiClientBody().Html([]byte(bodyContent))
+	body := NewRestApiClientBody().Html([]byte(bodyContent))
 
 	assert.NotNil(t, body)
 	assert.Equalf(t, body.Type, BODY_TYPE_HTML, "body.Type = %v, want %v", body.Type, BODY_TYPE_HTML)
 	assert.Equalf(t, bodyContent, string(body.Raw), "body.raw = %v, want %v", string(body.Raw), bodyContent)
 }
 
-func Test_ApiClientBody_NewApiClientWithUrlEncodedBody_CreatesUrlEncodedBody(t *testing.T) {
-	body := NewApiClientBody().UrlEncoded().WithField("foo", "bar").WithField("bar", "foo")
+func Test_RestApiClientBody_NewRestApiClientWithUrlEncodedBody_CreatesUrlEncodedBody(t *testing.T) {
+	body := NewRestApiClientBody().UrlEncoded().WithField("foo", "bar").WithField("bar", "foo")
 
 	assert.NotNil(t, body)
 	assert.Equalf(t, body.Type, BODY_TYPE_X_WWW_FORM_URLENCODED, "body.Type = %v, want %v", body.Type, BODY_TYPE_X_WWW_FORM_URLENCODED)
@@ -55,8 +55,8 @@ func Test_ApiClientBody_NewApiClientWithUrlEncodedBody_CreatesUrlEncodedBody(t *
 	assert.Equalf(t, "bar", body.Fields["foo"][0], "body.Fields.Foo = %v, want %v", body.Fields["foo"][0], "bar")
 }
 
-func Test_ApiClientBody_NewApiClientWithFormDataBody_CreatesFormDataBody(t *testing.T) {
-	body := NewApiClientBody().FormData().WithField("foo", "bar").WithField("bar", "foo")
+func Test_RestApiClientBody_NewRestApiClientWithFormDataBody_CreatesFormDataBody(t *testing.T) {
+	body := NewRestApiClientBody().FormData().WithField("foo", "bar").WithField("bar", "foo")
 
 	assert.NotNil(t, body)
 	assert.Equalf(t, body.Type, BODY_TYPE_FORM_DATA, "body.Type = %v, want %v", body.Type, BODY_TYPE_FORM_DATA)
@@ -64,7 +64,7 @@ func Test_ApiClientBody_NewApiClientWithFormDataBody_CreatesFormDataBody(t *test
 	assert.Equalf(t, "bar", body.Fields["foo"][0], "body.Fields.Foo = %v, want %v", body.Fields["foo"][0], "bar")
 }
 
-func Test_ApiClientBody_WithFile_AddsCurrectFiles(t *testing.T) {
+func Test_RestApiClientBody_WithFile_AddsCurrectFiles(t *testing.T) {
 	filePath := "test.x"
 	fileContent := "someContent"
 	if helper.FileExists(filePath) {
@@ -72,7 +72,7 @@ func Test_ApiClientBody_WithFile_AddsCurrectFiles(t *testing.T) {
 	}
 	helper.WriteToFile(fileContent, filePath)
 
-	body := NewApiClientBody().FormData().WithFile("file", filePath)
+	body := NewRestApiClientBody().FormData().WithFile("file", filePath)
 
 	helper.DeleteFile(filePath)
 	assert.NotNil(t, body)
@@ -80,8 +80,8 @@ func Test_ApiClientBody_WithFile_AddsCurrectFiles(t *testing.T) {
 	assert.Equal(t, len([]byte(fileContent)), len(body.Files["file"]["test.x"]))
 }
 
-func Test_ApiClientBody_WithField_AddsCurrectFields(t *testing.T) {
-	body := NewApiClientBody().FormData().WithField("foo", "bar").WithField("bar", "foo")
+func Test_RestApiClientBody_WithField_AddsCurrectFields(t *testing.T) {
+	body := NewRestApiClientBody().FormData().WithField("foo", "bar").WithField("bar", "foo")
 
 	assert.NotNil(t, body)
 	assert.Equalf(t, body.Type, BODY_TYPE_FORM_DATA, "body.Type = %v, want %v", body.Type, BODY_TYPE_FORM_DATA)
@@ -89,31 +89,31 @@ func Test_ApiClientBody_WithField_AddsCurrectFields(t *testing.T) {
 	assert.Equalf(t, "bar", body.Fields["foo"][0], "body.Fields.Foo = %v, want %v", body.Fields["foo"][0], "bar")
 }
 
-func Test_ApiClientBody_Get(t *testing.T) {
-	formDataProcessedBody := NewApiClientBody().FormData().WithField("foo", "bar")
+func Test_RestApiClientBody_Get(t *testing.T) {
+	formDataProcessedBody := NewRestApiClientBody().FormData().WithField("foo", "bar")
 	formDataProcessedBody.Get()
-	urlEncodedProcessedBody := NewApiClientBody().UrlEncoded().WithField("foo", "bar")
+	urlEncodedProcessedBody := NewRestApiClientBody().UrlEncoded().WithField("foo", "bar")
 	urlEncodedProcessedBody.Get()
 
 	tests := []struct {
 		name           string
-		body           *ApiClientBody
+		body           *RestApiClientBody
 		wantBody       string
 		containsInBody string
 	}{
 		{
 			name:     "Json",
-			body:     NewApiClientBody().Json([]byte("{}")),
+			body:     NewRestApiClientBody().Json([]byte("{}")),
 			wantBody: "{}",
 		},
 		{
 			name:     "Text",
-			body:     NewApiClientBody().Text([]byte("{text}")),
+			body:     NewRestApiClientBody().Text([]byte("{text}")),
 			wantBody: "{text}",
 		},
 		{
 			name:     "Html",
-			body:     NewApiClientBody().Html([]byte("{html}")),
+			body:     NewRestApiClientBody().Html([]byte("{html}")),
 			wantBody: "{html}",
 		},
 		{
@@ -144,33 +144,33 @@ func Test_ApiClientBody_Get(t *testing.T) {
 	}
 }
 
-func Test_ApiClientBody_GetHeader(t *testing.T) {
-	formDataProcessedBody := NewApiClientBody().FormData().WithField("foo", "bar")
+func Test_RestApiClientBody_GetHeader(t *testing.T) {
+	formDataProcessedBody := NewRestApiClientBody().FormData().WithField("foo", "bar")
 	formDataProcessedBody.Get()
-	urlEncodedProcessedBody := NewApiClientBody().UrlEncoded().WithField("foo", "bar")
+	urlEncodedProcessedBody := NewRestApiClientBody().UrlEncoded().WithField("foo", "bar")
 	urlEncodedProcessedBody.Get()
 
 	tests := []struct {
 		name      string
-		body      *ApiClientBody
+		body      *RestApiClientBody
 		wantKey   string
 		wantValue string
 	}{
 		{
 			name:      "Json",
-			body:      NewApiClientBody().Json([]byte("{}")),
+			body:      NewRestApiClientBody().Json([]byte("{}")),
 			wantKey:   "Content-Type",
 			wantValue: "application/json;charset=UTF-8",
 		},
 		{
 			name:      "Text",
-			body:      NewApiClientBody().Text([]byte("{}")),
+			body:      NewRestApiClientBody().Text([]byte("{}")),
 			wantKey:   "Content-Type",
 			wantValue: "plain/text",
 		},
 		{
 			name:      "Html",
-			body:      NewApiClientBody().Html([]byte("{}")),
+			body:      NewRestApiClientBody().Html([]byte("{}")),
 			wantKey:   "Content-Type",
 			wantValue: "text/html",
 		},
