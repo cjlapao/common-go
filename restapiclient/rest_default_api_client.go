@@ -3,6 +3,7 @@ package restapiclient
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -55,6 +56,53 @@ func (c *DefaultRestApiClient) Post(requestURL string, body RestApiClientBody) R
 	return c
 }
 
+func (c *DefaultRestApiClient) Put(requestURL string, body RestApiClientBody) RestApiClient {
+	parsedURL, err := url.Parse(requestURL)
+
+	if err != nil {
+		return nil
+	}
+
+	c.request = &RestApiClientRequest{
+		Method: API_METHOD_PUT,
+		URL:    parsedURL,
+	}
+
+	c.request.Body = &body
+	return c
+}
+
+func (c *DefaultRestApiClient) Delete(requestURL string) RestApiClient {
+	parsedURL, err := url.Parse(requestURL)
+
+	if err != nil {
+		return nil
+	}
+
+	c.request = &RestApiClientRequest{
+		Method: API_METHOD_DELETE,
+		URL:    parsedURL,
+	}
+
+	return c
+}
+
+func (c *DefaultRestApiClient) DeleteWithBody(requestURL string, body RestApiClientBody) RestApiClient {
+	parsedURL, err := url.Parse(requestURL)
+
+	if err != nil {
+		return nil
+	}
+
+	c.request = &RestApiClientRequest{
+		Method: API_METHOD_DELETE,
+		URL:    parsedURL,
+	}
+
+	c.request.Body = &body
+	return c
+}
+
 func (c *DefaultRestApiClient) PostForm(requestURL string, values url.Values) RestApiClient {
 	parsedURL, err := url.Parse(requestURL)
 
@@ -75,16 +123,21 @@ func (c *DefaultRestApiClient) PostForm(requestURL string, values url.Values) Re
 	return c
 }
 
-func (c *DefaultRestApiClient) PreFlight(requestURL string, methods []RestApiClientMethod, origin string, headers []string) (*RestApiClientResponse, error) {
-	parsedURL, err := url.Parse(requestURL)
+func (c *DefaultRestApiClient) PreFlight(requestURL string, origin string, methods []RestApiClientMethod, headers []string) (*RestApiClientResponse, error) {
+	_, err := url.Parse(requestURL)
 
 	if err != nil {
 		return nil, err
 	}
 
-	c.request = &RestApiClientRequest{
-		Method: API_METHOD_OPTIONS,
-		URL:    parsedURL,
+	if origin == "" {
+		origin = "*"
+	}
+
+	c.request = NewRestApiRequest(requestURL, API_METHOD_OPTIONS)
+
+	if c.request == nil {
+		return nil, fmt.Errorf("error parsing url %v", requestURL)
 	}
 
 	parsedMethods := ""
@@ -108,7 +161,7 @@ func (c *DefaultRestApiClient) PreFlight(requestURL string, methods []RestApiCli
 	}
 
 	if len(parsedHeaders) > 0 {
-		c.request.Headers["Access-Control-Request-Headers"] = parsedMethods
+		c.request.Headers["Access-Control-Request-Headers"] = parsedHeaders
 	}
 
 	c.request.Headers["Origin"] = origin
@@ -192,6 +245,11 @@ func (c *DefaultRestApiClient) SendRequestWithContext(apiRequest RestApiClientRe
 		}
 
 		key, value := apiRequest.Body.GetHeader()
+		httpRequest.Header.Add(key, value)
+	}
+
+	// Adding all headers in the request
+	for key, value := range apiRequest.Headers {
 		httpRequest.Header.Add(key, value)
 	}
 

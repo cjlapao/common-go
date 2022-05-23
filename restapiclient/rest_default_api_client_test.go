@@ -655,3 +655,177 @@ func Test_DefaultRestApiClient_PostForm(t *testing.T) {
 	assert.Nilf(t, errBody, "Response body should not be nil")
 	assert.Equalf(t, "\"ok\"\n", responseBody, "Response body should be ok")
 }
+
+func Test_DefaultRestApiClient_PreFlight(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		assert.Equalf(t, "OPTIONS", r.Method, "Expected to be POST method")
+		assert.Equalf(t, "/foo/bar", r.URL.String(), "Expected url to be /foo/bar")
+		assert.Equal(t, []string{"GET, POST"}, r.Header["Access-Control-Request-Method"])
+		assert.Equal(t, []string{"X-Requested-With"}, r.Header["Access-Control-Request-Headers"])
+		assert.Equal(t, []string{"*"}, r.Header["Origin"])
+
+		json.NewEncoder(w).Encode("ok")
+	}))
+
+	defer server.Close()
+
+	api := DefaultRestApiClient{
+		Client: server.Client(),
+	}
+
+	apiResponse, err := api.PreFlight(server.URL+"/foo/bar", "*", []RestApiClientMethod{API_METHOD_GET, API_METHOD_POST}, []string{"X-Requested-With"})
+
+	responseBodyRaw, errBody := ioutil.ReadAll(apiResponse.Response.Body)
+	responseBody := string(responseBodyRaw)
+	assert.Nilf(t, err, "Response error should be nil")
+	assert.Nilf(t, errBody, "Response body should not be nil")
+	assert.Equalf(t, "\"ok\"\n", responseBody, "Response body should be ok")
+}
+
+func Test_DefaultRestApiClient_PreFlight_WithOnlyMethods(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		assert.Equalf(t, "OPTIONS", r.Method, "Expected to be POST method")
+		assert.Equalf(t, "/foo/bar", r.URL.String(), "Expected url to be /foo/bar")
+		assert.Equal(t, []string{"GET, POST"}, r.Header["Access-Control-Request-Method"])
+		assert.Nil(t, r.Header["Access-Control-Request-Headers"])
+		assert.Equal(t, []string{"*"}, r.Header["Origin"])
+
+		json.NewEncoder(w).Encode("ok")
+	}))
+
+	defer server.Close()
+
+	api := DefaultRestApiClient{
+		Client: server.Client(),
+	}
+
+	apiResponse, err := api.PreFlight(server.URL+"/foo/bar", "*", []RestApiClientMethod{API_METHOD_GET, API_METHOD_POST}, []string{})
+
+	responseBodyRaw, errBody := ioutil.ReadAll(apiResponse.Response.Body)
+	responseBody := string(responseBodyRaw)
+	assert.Nilf(t, err, "Response error should be nil")
+	assert.Nilf(t, errBody, "Response body should not be nil")
+	assert.Equalf(t, "\"ok\"\n", responseBody, "Response body should be ok")
+}
+
+func Test_DefaultRestApiClient_PreFlight_WithOnlyHeaders(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		assert.Equalf(t, "OPTIONS", r.Method, "Expected to be POST method")
+		assert.Equalf(t, "/foo/bar", r.URL.String(), "Expected url to be /foo/bar")
+		assert.Nil(t, r.Header["Access-Control-Request-Method"])
+		assert.Equal(t, []string{"X-Requested-With"}, r.Header["Access-Control-Request-Headers"])
+		assert.Equal(t, []string{"*"}, r.Header["Origin"])
+
+		json.NewEncoder(w).Encode("ok")
+	}))
+
+	defer server.Close()
+
+	api := DefaultRestApiClient{
+		Client: server.Client(),
+	}
+
+	apiResponse, err := api.PreFlight(server.URL+"/foo/bar", "*", []RestApiClientMethod{}, []string{"X-Requested-With"})
+
+	responseBodyRaw, errBody := ioutil.ReadAll(apiResponse.Response.Body)
+	responseBody := string(responseBodyRaw)
+	assert.Nilf(t, err, "Response error should be nil")
+	assert.Nilf(t, errBody, "Response body should not be nil")
+	assert.Equalf(t, "\"ok\"\n", responseBody, "Response body should be ok")
+}
+
+func Test_DefaultRestApiClient_Put(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.NotNilf(t, r.Body, "body should not be nil")
+		var body TestBody
+		pError := r.ParseMultipartForm(0)
+		assert.Nilf(t, pError, "parsing form should not contain errors")
+
+		body.Password = r.Form.Get("password")
+		body.Username = r.Form.Get("username")
+
+		assert.Equalf(t, "PUT", r.Method, "Expected to be POST method")
+		assert.Equalf(t, "/foo/bar", r.URL.String(), "Expected url to be /foo/bar")
+
+		assert.Equalf(t, "testUser", body.Username, "username = %v, want %v", body.Username, "testUser")
+		assert.Equalf(t, "testPassword", body.Password, "password = %v, want %v", body.Password, "testPassword")
+		json.NewEncoder(w).Encode("ok")
+	}))
+
+	defer server.Close()
+
+	api := DefaultRestApiClient{
+		Client: server.Client(),
+	}
+
+	body := NewRestApiClientBody().FormData().WithField("username", "testUser").WithField("password", "testPassword")
+	apiResponse, err := api.Put(server.URL+"/foo/bar", *body).
+		Run()
+
+	responseBodyRaw, errBody := ioutil.ReadAll(apiResponse.Response.Body)
+	responseBody := string(responseBodyRaw)
+	assert.Nilf(t, err, "Response error should be nil")
+	assert.Nilf(t, errBody, "Response body should not be nil")
+	assert.Equalf(t, "\"ok\"\n", responseBody, "Response body should be ok")
+}
+
+func Test_DefaultRestApiClient_Delete(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equalf(t, "DELETE", r.Method, "Expected to be POST method")
+		assert.Equalf(t, "/foo/bar", r.URL.String(), "Expected url to be /foo/bar")
+
+		json.NewEncoder(w).Encode("ok")
+	}))
+
+	defer server.Close()
+
+	api := DefaultRestApiClient{
+		Client: server.Client(),
+	}
+
+	apiResponse, err := api.Delete(server.URL + "/foo/bar").Run()
+
+	responseBodyRaw, errBody := ioutil.ReadAll(apiResponse.Response.Body)
+	responseBody := string(responseBodyRaw)
+	assert.Nilf(t, err, "Response error should be nil")
+	assert.Nilf(t, errBody, "Response body should not be nil")
+	assert.Equalf(t, "\"ok\"\n", responseBody, "Response body should be ok")
+}
+
+func Test_DefaultRestApiClient_DeleteWithBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.NotNilf(t, r.Body, "body should not be nil")
+		var body TestBody
+		pError := r.ParseMultipartForm(0)
+		assert.Nilf(t, pError, "parsing form should not contain errors")
+
+		body.Password = r.Form.Get("password")
+		body.Username = r.Form.Get("username")
+
+		assert.Equalf(t, "DELETE", r.Method, "Expected to be POST method")
+		assert.Equalf(t, "/foo/bar", r.URL.String(), "Expected url to be /foo/bar")
+
+		assert.Equalf(t, "testUser", body.Username, "username = %v, want %v", body.Username, "testUser")
+		assert.Equalf(t, "testPassword", body.Password, "password = %v, want %v", body.Password, "testPassword")
+		json.NewEncoder(w).Encode("ok")
+	}))
+
+	defer server.Close()
+
+	api := DefaultRestApiClient{
+		Client: server.Client(),
+	}
+
+	body := NewRestApiClientBody().FormData().WithField("username", "testUser").WithField("password", "testPassword")
+	apiResponse, err := api.DeleteWithBody(server.URL+"/foo/bar", *body).
+		Run()
+
+	responseBodyRaw, errBody := ioutil.ReadAll(apiResponse.Response.Body)
+	responseBody := string(responseBodyRaw)
+	assert.Nilf(t, err, "Response error should be nil")
+	assert.Nilf(t, errBody, "Response body should not be nil")
+	assert.Equalf(t, "\"ok\"\n", responseBody, "Response body should be ok")
+}

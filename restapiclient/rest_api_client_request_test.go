@@ -77,3 +77,26 @@ func Test_RestApiClientRequest_ParseURL(t *testing.T) {
 		})
 	}
 }
+
+func Test_RestApiClientRequest_AddHeader_WithNoCtor(t *testing.T) {
+	request := RestApiClientRequest{}
+
+	request.AddHeader("X-Requested-With", "some text")
+
+	assert.NotNil(t, request.Headers)
+	assert.Equal(t, 1, len(request.Headers))
+	assert.Equal(t, "some text", request.Headers["X-Requested-With"])
+}
+
+func Test_RestApiClientRequest_AddHeader_WithExistingHeader_GetsAppended(t *testing.T) {
+	request := RestApiClientRequest{}
+	request.Headers = map[string]string{
+		"Content-Length": "10",
+	}
+
+	request.AddHeader("X-Requested-With", "some text")
+
+	assert.NotNil(t, request.Headers)
+	assert.Equal(t, 2, len(request.Headers))
+	assert.Equal(t, "some text", request.Headers["X-Requested-With"])
+}

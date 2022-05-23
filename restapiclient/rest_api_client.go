@@ -9,7 +9,11 @@ type RestApiClient interface {
 	Get(url string) RestApiClient
 	Post(url string, body RestApiClientBody) RestApiClient
 	PostForm(url string, values url.Values) RestApiClient
-	PreFlight(requestURL string, methods []RestApiClientMethod, origins string, headers []string) (*RestApiClientResponse, error)
+	Put(url string, body RestApiClientBody) RestApiClient
+	Delete(url string) RestApiClient
+	DeleteWithBody(url string, body RestApiClientBody) RestApiClient
+
+	PreFlight(requestURL string, origins string, methods []RestApiClientMethod, headers []string) (*RestApiClientResponse, error)
 
 	AddAuthorization(auth *RestApiClientAuthorization) RestApiClient
 	AddBearerToken(token string) RestApiClient
