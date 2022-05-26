@@ -11,7 +11,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.0
 	go.mongodb.org/mongo-driver v1.8.0
-	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v3 v3.0.0
 )
 
 require (
@@ -31,5 +31,4 @@ require (
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
 	golang.org/x/sys v0.0.0-20211123173158-ef496fb156ab // indirect
 	golang.org/x/text v0.3.5 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
