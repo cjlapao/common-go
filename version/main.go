@@ -73,24 +73,10 @@ func (v *Version) String() string {
 	return fmt.Sprint(v.Major) + "." + fmt.Sprint(v.Minor) + "." + fmt.Sprint(v.Build) + "." + fmt.Sprint(v.Rev)
 }
 
-func FromFile(filePath string) (*Version, error) {
+func FromString(ver string) (*Version, error) {
 	v := Version{}
 
-	if filePath == "" {
-		return nil, errors.New("filepath is empty")
-	}
-
-	if !helper.FileExists(filePath) {
-		return nil, errors.New("file does not exists")
-	}
-
-	content, err := helper.ReadFromFile(filePath)
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("there was a problem reading from the file %v", filePath))
-	}
-
-	contentStr := string(content)
-	parts := strings.Split(contentStr, ".")
+	parts := strings.Split(ver, ".")
 	if len(parts) != 4 {
 		return nil, errors.New("could not parse file")
 	}
@@ -117,6 +103,29 @@ func FromFile(filePath string) (*Version, error) {
 	}
 
 	return &v, nil
+}
+
+func FromFile(filePath string) (*Version, error) {
+	if filePath == "" {
+		return nil, errors.New("filepath is empty")
+	}
+
+	if !helper.FileExists(filePath) {
+		return nil, errors.New("file does not exists")
+	}
+
+	content, err := helper.ReadFromFile(filePath)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("there was a problem reading from the file %v", filePath))
+	}
+
+	contentStr := string(content)
+	v, err := FromString(contentStr)
+	if err != nil {
+		return nil, err
+	}
+
+	return v, nil
 }
 
 // PrintAnsiHeader Prints a Application Version Ansi Header
