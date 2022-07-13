@@ -2,8 +2,12 @@ package version
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
+	"github.com/cjlapao/common-go/helper"
 	"github.com/cjlapao/common-go/strcolor"
 
 	"gopkg.in/yaml.v3"
@@ -67,6 +71,52 @@ func Get(v ...int) *Version {
 
 func (v *Version) String() string {
 	return fmt.Sprint(v.Major) + "." + fmt.Sprint(v.Minor) + "." + fmt.Sprint(v.Build) + "." + fmt.Sprint(v.Rev)
+}
+
+func FromFile(filePath string) (*Version, error) {
+	v := Version{}
+
+	if filePath == "" {
+		return nil, errors.New("filepath is empty")
+	}
+
+	if !helper.FileExists(filePath) {
+		return nil, errors.New("file does not exists")
+	}
+
+	content, err := helper.ReadFromFile(filePath)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("there was a problem reading from the file %v", filePath))
+	}
+
+	contentStr := string(content)
+	parts := strings.Split(contentStr, ".")
+	if len(parts) != 4 {
+		return nil, errors.New("could not parse file")
+	}
+
+	if num, err := strconv.Atoi(parts[0]); err == nil {
+		v.Major = num
+	} else {
+		return nil, errors.New("major part is not a number")
+	}
+	if num, err := strconv.Atoi(parts[1]); err == nil {
+		v.Minor = num
+	} else {
+		return nil, errors.New("minor part is not a number")
+	}
+	if num, err := strconv.Atoi(parts[2]); err == nil {
+		v.Build = num
+	} else {
+		return nil, errors.New("build part is not a number")
+	}
+	if num, err := strconv.Atoi(parts[3]); err == nil {
+		v.Rev = num
+	} else {
+		return nil, errors.New("rev part is not a number")
+	}
+
+	return &v, nil
 }
 
 // PrintAnsiHeader Prints a Application Version Ansi Header
