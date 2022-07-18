@@ -45,6 +45,7 @@ func Get(v ...int) *Version {
 	if appVersion != nil {
 		return appVersion
 	}
+
 	result := Version{
 		Major: 0,
 		Minor: 0,
@@ -81,24 +82,39 @@ func FromString(ver string) (*Version, error) {
 	}
 
 	parts := strings.Split(ver, ".")
-	if len(parts) != 4 {
-		return nil, errors.New("could not parse file")
+
+	if len(parts) < 1 || len(parts) > 4 {
+		return nil, errors.New("could not parse string")
 	}
 
 	if num, err := strconv.Atoi(parts[0]); err == nil {
 		v.Major = num
+	} else {
+		return nil, errors.New("could not parse major version")
 	}
 
-	if num, err := strconv.Atoi(parts[1]); err == nil {
-		v.Minor = num
+	if len(parts) > 1 {
+		if num, err := strconv.Atoi(parts[1]); err == nil {
+			v.Minor = num
+		} else {
+			return nil, errors.New("could not parse minor version")
+		}
 	}
 
-	if num, err := strconv.Atoi(parts[2]); err == nil {
-		v.Build = num
+	if len(parts) > 2 {
+		if num, err := strconv.Atoi(parts[2]); err == nil {
+			v.Build = num
+		} else {
+			return nil, errors.New("could not parse build version")
+		}
 	}
 
-	if num, err := strconv.Atoi(parts[3]); err == nil {
-		v.Rev = num
+	if len(parts) > 3 {
+		if num, err := strconv.Atoi(parts[3]); err == nil {
+			v.Rev = num
+		} else {
+			return nil, errors.New("could not parse rev version")
+		}
 	}
 
 	return &v, nil
