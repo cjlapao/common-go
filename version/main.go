@@ -76,6 +76,10 @@ func (v *Version) String() string {
 func FromString(ver string) (*Version, error) {
 	v := Version{}
 
+	if strings.HasPrefix(ver, "v") {
+		ver = strings.ReplaceAll(ver, "v", "")
+	}
+
 	parts := strings.Split(ver, ".")
 	if len(parts) != 4 {
 		return nil, errors.New("could not parse file")
@@ -83,23 +87,18 @@ func FromString(ver string) (*Version, error) {
 
 	if num, err := strconv.Atoi(parts[0]); err == nil {
 		v.Major = num
-	} else {
-		return nil, errors.New("major part is not a number")
 	}
+
 	if num, err := strconv.Atoi(parts[1]); err == nil {
 		v.Minor = num
-	} else {
-		return nil, errors.New("minor part is not a number")
 	}
+
 	if num, err := strconv.Atoi(parts[2]); err == nil {
 		v.Build = num
-	} else {
-		return nil, errors.New("build part is not a number")
 	}
+
 	if num, err := strconv.Atoi(parts[3]); err == nil {
 		v.Rev = num
-	} else {
-		return nil, errors.New("rev part is not a number")
 	}
 
 	return &v, nil
