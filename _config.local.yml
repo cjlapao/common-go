@@ -1,6 +1,8 @@
 title: Golang Common Library
-remote_theme: just-the-docs/just-the-docs
-url: "https://common-go.carloslapao.com"
+theme: just-the-docs
+logo: "/images/logo.png"
+url: "http://localhost:4000"
+baseurl: ""
 search_enabled: true
 permalink: pretty
 exclude: [
@@ -9,8 +11,6 @@ exclude: [
   "*.gem", 
   "Gemfile", 
   "Gemfile.lock", 
-  "dockerfile", 
-  "docker-compose.yml", 
   "package.json", 
   "package-lock.json",  
   "script/", "LICENSE.txt", 

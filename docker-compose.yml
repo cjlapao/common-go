@@ -1,0 +1,15 @@
+version: '3.4'
+
+services:
+  jekyll-common-go:
+    build:
+      context: .
+    ports:
+      - "4000:4000"
+    volumes:
+      - .:/usr/src/app
+    stdin_open: true
+    tty: true
+    environment:
+      JEKYLL_ENV: production
+    command: bundle exec jekyll serve -H 0.0.0.0 -t --config _config.local.yml --watch
