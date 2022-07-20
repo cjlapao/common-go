@@ -1,5 +1,6 @@
 title: Golang Common Library
 remote_theme: just-the-docs/just-the-docs
+logo: "/images/logo.png"
 url: "https://common-go.carloslapao.com"
 search_enabled: true
 permalink: pretty
@@ -21,7 +22,7 @@ exclude: [
   "docs/tests/"]
 aux_links:
   "On Github":
-    - "https://github.com/cjlapao/go-template"
+    - "https://github.com/cjlapao/common-go"
 aux_links_new_tab: false
 footer_content: "Copyright &copy; Carlos Lapao <a href=\"https://opensource.org/licenses/MIT\">MIT license.</a>"
 collections:
