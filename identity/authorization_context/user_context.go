@@ -19,7 +19,7 @@ type UserContext struct {
 
 func NewUserContext() *UserContext {
 	user := UserContext{
-		ID:              cryptorand.GenerateRandomString(constants.ID_SIZE),
+		ID:              cryptorand.GetRandomString(constants.ID_SIZE),
 		ValidatedClaims: make([]string, 0),
 		Roles:           make([]string, 0),
 	}

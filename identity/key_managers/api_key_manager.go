@@ -71,7 +71,7 @@ func (apiKeyManager *ApiKeyManager) Add(key string, value string) error {
 
 	if cachedApiKey == nil {
 		cachedApiKey = &models.ApiKey{
-			ID:       cryptorand.GenerateRandomString(constants.ID_SIZE),
+			ID:       cryptorand.GetRandomString(constants.ID_SIZE),
 			Name:     key,
 			KeyValue: value,
 		}
