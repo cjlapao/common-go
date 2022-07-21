@@ -2,7 +2,7 @@ package models
 
 import (
 	"github.com/cjlapao/common-go/constants"
-	"github.com/cjlapao/common-go/cryptorand"
+	"github.com/cjlapao/common-go-cryptorand"
 	"github.com/cjlapao/common-go/validators"
 )
 

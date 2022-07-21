@@ -1,8 +1,8 @@
 package authorization_context
 
 import (
+	cryptorand "github.com/cjlapao/common-go-cryptorand"
 	"github.com/cjlapao/common-go/constants"
-	"github.com/cjlapao/common-go/cryptorand"
 )
 
 type UserContext struct {

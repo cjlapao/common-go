@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cjlapao/common-go/cryptorand"
+	cryptorand "github.com/cjlapao/common-go-cryptorand"
 	"github.com/cjlapao/common-go/execution_context"
 	identity_constants "github.com/cjlapao/common-go/identity/constants"
 	"github.com/cjlapao/common-go/identity/jwt_keyvault"
