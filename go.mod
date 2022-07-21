@@ -1,15 +1,16 @@
 module github.com/cjlapao/common-go
 
-go 1.17
+go 1.18
 
 require (
+	github.com/cjlapao/common-go-cryptorand v0.0.3
 	github.com/fatih/color v1.13.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/handlers v1.5.1
 	github.com/gorilla/mux v1.8.0
 	github.com/pascaldekloe/jwt v1.10.0
 	github.com/pkg/errors v0.9.1
-	github.com/stretchr/testify v1.7.2
+	github.com/stretchr/testify v1.8.0
 	go.mongodb.org/mongo-driver v1.8.0
 	gopkg.in/yaml.v3 v3.0.1
 )

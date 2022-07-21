@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cjlapao/common-go/cryptorand"
+	cryptorand "github.com/cjlapao/common-go-cryptorand"
 	"github.com/cjlapao/common-go/execution_context"
 	identity_constants "github.com/cjlapao/common-go/identity/constants"
 	"github.com/cjlapao/common-go/identity/jwt_keyvault"
@@ -56,7 +56,7 @@ func GenerateUserTokenForKeyAndAudiences(keyId string, user models.User, audienc
 		userTokenClaims.NotBefore = jwt.NewNumericTime(nowNegativeSkew)
 	}
 	userTokenClaims.Expires = jwt.NewNumericTime(validUntil)
-	userTokenClaims.ID = cryptorand.GenerateAlphaNumericRandomString(60)
+	userTokenClaims.ID = cryptorand.GetAlphaNumericRandomString(60)
 
 	// Adding Custom Claims to the token
 	userClaims := make(map[string]interface{})
@@ -139,7 +139,7 @@ func GenerateRefreshToken(keyId string, user models.User) (string, error) {
 		refreshTokenClaims.NotBefore = jwt.NewNumericTime(nowNegativeSkew)
 	}
 	refreshTokenClaims.Expires = jwt.NewNumericTime(validUntil)
-	refreshTokenClaims.ID = cryptorand.GenerateAlphaNumericRandomString(60)
+	refreshTokenClaims.ID = cryptorand.GetAlphaNumericRandomString(60)
 
 	// Custom Claims
 	customClaims := make(map[string]interface{})
@@ -178,7 +178,7 @@ func GenerateVerifyEmailToken(keyId string, user models.User) string {
 		emailVerificationTokenClaims.NotBefore = jwt.NewNumericTime(nowNegativeSkew)
 	}
 	emailVerificationTokenClaims.Expires = jwt.NewNumericTime(validUntil)
-	emailVerificationTokenClaims.ID = cryptorand.GenerateAlphaNumericRandomString(60)
+	emailVerificationTokenClaims.ID = cryptorand.GetAlphaNumericRandomString(60)
 
 	// Custom Claims
 	customClaims := make(map[string]interface{})

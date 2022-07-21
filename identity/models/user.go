@@ -1,8 +1,8 @@
 package models
 
 import (
+	cryptorand "github.com/cjlapao/common-go-cryptorand"
 	"github.com/cjlapao/common-go/constants"
-	"github.com/cjlapao/common-go/cryptorand"
 	"github.com/cjlapao/common-go/validators"
 )
 
@@ -28,7 +28,7 @@ type User struct {
 
 func NewUser() *User {
 	user := User{
-		ID: cryptorand.GenerateRandomString(constants.ID_SIZE),
+		ID: cryptorand.GetRandomString(constants.ID_SIZE),
 	}
 
 	user.Roles = make([]UserRole, 0)

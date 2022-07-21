@@ -1,8 +1,8 @@
 package models
 
 import (
+	cryptorand "github.com/cjlapao/common-go-cryptorand"
 	"github.com/cjlapao/common-go/constants"
-	"github.com/cjlapao/common-go/cryptorand"
 	"github.com/cjlapao/common-go/guard"
 )
 
@@ -17,7 +17,7 @@ func NewApiKeyRole(name string) *ApiKeyRole {
 	}
 
 	result := ApiKeyRole{
-		ID:   cryptorand.GenerateRandomString(constants.ID_SIZE),
+		ID:   cryptorand.GetRandomString(constants.ID_SIZE),
 		Name: name,
 	}
 
