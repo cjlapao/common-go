@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"log"
 	"os"
@@ -14,6 +15,24 @@ import (
 // FileExists Checks if a file/directory exists
 func FileExists(path string) bool {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return false
+	}
+
+	return true
+}
+
+// DirectoryExists Checks if a directory exists
+func DirectoryExists(folderPath string) bool {
+	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
+		return false
+	}
+
+	return true
+}
+
+func CreateDirectory(folderPath string, mode fs.FileMode) bool {
+	if err := os.Mkdir(folderPath, mode); err != nil {
+		log.Print(fmt.Sprintf("Folder %v could no be created, err: %v", folderPath, err))
 		return false
 	}
 
