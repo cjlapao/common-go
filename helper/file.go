@@ -20,6 +20,15 @@ func FileExists(path string) bool {
 	return true
 }
 
+// DirectoryExists Checks if a directory exists
+func DirectoryExists(folderPath string) bool {
+	if _, err := os.Stat(folderPath); os.IsNotExist(err) {
+		return false
+	}
+
+	return true
+}
+
 // GetExecutionPath gets executable path
 func GetExecutionPath() string {
 	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
