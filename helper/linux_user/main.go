@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/cjlapao/common-go/commands"
+	"github.com/cjlapao/common-go/guard"
 )
 
 type LinuxUser struct {
@@ -126,6 +127,23 @@ func Create(userName string, userId int, options ...LinuxUserCreateOptions) erro
 
 	if strings.ContainsAny(output, "already exists") {
 		return fmt.Errorf("there was an error creating user %v with id %v, user already exists", userName, userId)
+	}
+
+	return nil
+}
+
+func AddToGroup(userName string, groupName string) error {
+	if err := guard.EmptyOrNil(userName, "username"); err != nil {
+		return err
+	}
+	if err := guard.EmptyOrNil(groupName, "group name"); err != nil {
+		return err
+	}
+
+	_, err := commands.Execute("adduser", userName, groupName)
+
+	if err != nil {
+		return err
 	}
 
 	return nil

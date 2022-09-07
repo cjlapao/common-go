@@ -10,8 +10,9 @@ import (
 )
 
 type LinuxUserGroup struct {
-	ID   int
-	Name string
+	ID    int
+	Name  string
+	Users []string
 }
 
 func Marshal(value string) (*LinuxUserGroup, error) {
@@ -32,6 +33,13 @@ func Marshal(value string) (*LinuxUserGroup, error) {
 	result := LinuxUserGroup{
 		ID:   groupId,
 		Name: parts[0],
+	}
+
+	if len(parts[3]) == 0 {
+		result.Users = make([]string, 0)
+	} else {
+		users := strings.Split(parts[3], ",")
+		result.Users = append(result.Users, users...)
 	}
 
 	return &result, nil
