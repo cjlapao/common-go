@@ -52,7 +52,7 @@ func ChangeFileMode(path string, mode string, recursive bool) error {
 	createParameters = append(createParameters, mode)
 	createParameters = append(createParameters, helper.ToOsPath(path))
 
-	_, err := commands.Execute("chmode", createParameters...)
+	_, err := commands.Execute("chmod", createParameters...)
 
 	if err != nil {
 		return err
