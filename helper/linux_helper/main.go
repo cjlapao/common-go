@@ -35,3 +35,28 @@ func ChangeOwner(path string, username string, groupName string, recursive bool)
 
 	return nil
 }
+
+func ChangeFileMode(path string, mode string, recursive bool) error {
+	if err := guard.EmptyOrNil(path); err != nil {
+		return err
+	}
+	if err := guard.EmptyOrNil(mode); err != nil {
+		return err
+	}
+
+	createParameters := make([]string, 0)
+	if recursive {
+		createParameters = append(createParameters, "-R")
+	}
+
+	createParameters = append(createParameters, mode)
+	createParameters = append(createParameters, helper.ToOsPath(path))
+
+	_, err := commands.Execute("chmod", createParameters...)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}

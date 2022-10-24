@@ -12,9 +12,27 @@ const (
 
 func GetArgumentAt(index int) string {
 	args := os.Args
-	if len(args) > 0 && len(args) >= index {
+	index += 1
+	argsLen := len(args) - 1
+	if len(args) > 0 && index <= argsLen {
 		return args[index]
 	}
+	return ""
+}
+
+func GetCommandAt(index int) string {
+	args := os.Args
+	index += 1
+	argsLen := len(args) - 1
+	if len(args) > 0 && index <= argsLen {
+		result := args[index]
+		if strings.HasPrefix(result, FlagPrefix) {
+			return ""
+		}
+
+		return result
+	}
+
 	return ""
 }
 

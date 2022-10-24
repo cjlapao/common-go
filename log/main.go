@@ -96,12 +96,15 @@ func (l *Logger) AddCmdLogger() {
 		xType := fmt.Sprintf("%T", logger)
 		if xType == "CmdLogger" {
 			found = true
+			logger.UseTimestamp(false)
 			break
 		}
 	}
 
 	if !found {
-		l.Loggers = append(l.Loggers, new(CmdLogger))
+		logger := new(CmdLogger)
+		logger.UseTimestamp(false)
+		l.Loggers = append(l.Loggers, logger)
 	}
 }
 
@@ -139,6 +142,7 @@ func (l *Logger) WithWarning() *Logger {
 }
 
 func (l *Logger) WithTimestamp() *Logger {
+	println("setting the withtimesramp")
 	for _, logger := range l.Loggers {
 		logger.UseTimestamp(true)
 	}
