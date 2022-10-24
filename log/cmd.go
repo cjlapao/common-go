@@ -31,11 +31,11 @@ const (
 )
 
 func (l *CmdLogger) UseTimestamp(value bool) {
-	useTimestamp = true
+	useTimestamp = value
 }
 
 func (l *CmdLogger) UseCorrelationId(value bool) {
-	userCorrelationId = true
+	userCorrelationId = value
 }
 
 // Log Log information message

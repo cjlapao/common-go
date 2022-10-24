@@ -1,64 +1,50 @@
 package commands
 
 import (
-	"bufio"
 	"bytes"
-	"errors"
-	"fmt"
+	"context"
+	"io"
+	"os"
 	"os/exec"
 )
 
 func Execute(command string, args ...string) (string, error) {
 	cmd := exec.Command(command, args...)
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	var err bytes.Buffer
-	cmd.Stderr = &err
-	var in bytes.Buffer
-	cmd.Stdin = &in
+	var stdOut, stdIn bytes.Buffer
 
-	cmd.Start()
-	cmd.Wait()
+	cmd.Stdout = io.MultiWriter(os.Stdout, &stdOut)
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stdOut)
+	cmd.Stdin = &stdIn
 
-	errString := err.String()
-	if len(errString) > 0 {
-		return out.String(), errors.New(errString)
+	if err := cmd.Run(); err != nil {
+		return stdOut.String(), err
 	}
 
-	return out.String(), nil
+	return stdOut.String(), nil
 }
 
 func ExecuteAndWatch(command string, args ...string) (string, error) {
-	cmd := exec.Command(command, args...)
-	stdout, _ := cmd.StdoutPipe()
-	stderr, _ := cmd.StderrPipe()
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	var err bytes.Buffer
-	cmd.Stderr = &err
-	var in bytes.Buffer
-	cmd.Stdin = &in
+	ctx, cancel := context.WithCancel(context.TODO())
+	defer cancel()
 
-	cmd.Start()
+	cmd := exec.CommandContext(ctx, command, args...)
+	var stdOut, stdIn bytes.Buffer
 
-	outScanner := bufio.NewScanner(stdout)
-	for outScanner.Scan() {
-		m := outScanner.Text()
-		fmt.Println(m)
+	cmd.Stdout = io.MultiWriter(os.Stdout, &stdOut)
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stdOut)
+	cmd.Stdin = &stdIn
+
+	if err := cmd.Start(); err != nil {
+		return stdOut.String(), err
 	}
 
-	errorScanner := bufio.NewScanner(stderr)
-	for errorScanner.Scan() {
-		m := errorScanner.Text()
-		fmt.Println(m)
+	go func() {
+		<-ctx.Done()
+	}()
+
+	if err := cmd.Wait(); err != nil {
+		return stdOut.String(), err
 	}
 
-	cmd.Wait()
-
-	errString := err.String()
-	if len(errString) > 0 {
-		return out.String(), errors.New(errString)
-	}
-
-	return out.String(), nil
+	return stdOut.String(), nil
 }

@@ -27,7 +27,6 @@ func New() *ServiceProvider {
 	globalProviderContainer.Logger = log.Get()
 	globalProviderContainer.Version = version.Get()
 	globalProviderContainer.Configuration = configuration.Get()
-	globalProviderContainer.Logger.WithTimestamp()
 	if globalProviderContainer.Configuration.GetBool(constants.DEBUG_ENVIRONMENT) {
 		globalProviderContainer.Logger.WithDebug()
 	}
