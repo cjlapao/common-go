@@ -23,6 +23,21 @@ func Execute(command string, args ...string) (string, error) {
 	return stdOut.String(), nil
 }
 
+func ExecuteWithNoOutput(command string, args ...string) (string, error) {
+	cmd := exec.Command(command, args...)
+	var stdOut, stdIn bytes.Buffer
+
+	cmd.Stdout = &stdOut
+	cmd.Stderr = &stdIn
+	cmd.Stdin = &stdIn
+
+	if err := cmd.Run(); err != nil {
+		return stdOut.String(), err
+	}
+
+	return stdOut.String(), nil
+}
+
 func ExecuteAndWatch(command string, args ...string) (string, error) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
