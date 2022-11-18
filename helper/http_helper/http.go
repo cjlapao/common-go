@@ -172,3 +172,21 @@ func MapRequestBody(request *http.Request, dest interface{}) error {
 
 	return nil
 }
+
+func JoinUrl(element ...string) string {
+	base := "/"
+	for _, e := range element {
+		if e == "" {
+			continue
+		}
+
+		e = strings.Trim(e, "/")
+		if !strings.HasSuffix(base, "/") {
+			base += "/"
+		}
+
+		base += e
+	}
+
+	return strings.ReplaceAll(base, "//", "/")
+}
