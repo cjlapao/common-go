@@ -117,23 +117,23 @@ func (service *MongoDBService) GlobalDatabase() *MongoFactory {
 // a single tenant system.
 // This will try to only keep a client per session to avoid starvation of the clients
 // returns a MongoFactory pointer
-func (service *MongoDBService) TenantDatabase() *MongoFactory {
-	ctx := execution_context.Get()
-	tenantId := ctx.Authorization.TenantId
-	if tenantId == "" || strings.ToLower(tenantId) == "global" {
-		return service.GlobalDatabase()
-	}
-	if !strings.EqualFold(tenantId, service.TenantDatabaseName) {
-		service.TenantDatabaseName = tenantId
-		logger.Info("Initiating MongoDB Service for tenant database %v", service.TenantDatabaseName)
-		tenantFactory = NewFactory(service.ConnectionString).WithDatabase(service.TenantDatabaseName)
-		logger.Info("MongoDB Service for tenant database %v initiated successfully", service.TenantDatabaseName)
-	}
+// func (service *MongoDBService) TenantDatabase() *MongoFactory {
+// 	ctx := execution_context.Get()
+// 	tenantId := ctx.Authorization.TenantId
+// 	if tenantId == "" || strings.ToLower(tenantId) == "global" {
+// 		return service.GlobalDatabase()
+// 	}
+// 	if !strings.EqualFold(tenantId, service.TenantDatabaseName) {
+// 		service.TenantDatabaseName = tenantId
+// 		logger.Info("Initiating MongoDB Service for tenant database %v", service.TenantDatabaseName)
+// 		tenantFactory = NewFactory(service.ConnectionString).WithDatabase(service.TenantDatabaseName)
+// 		logger.Info("MongoDB Service for tenant database %v initiated successfully", service.TenantDatabaseName)
+// 	}
 
-	return tenantFactory
-}
+// 	return tenantFactory
+// }
 
-func (service *MongoDBService) GetTenant() string {
-	service.TenantDatabase()
-	return service.TenantDatabaseName
-}
+// func (service *MongoDBService) GetTenant() string {
+// 	service.TenantDatabase()
+// 	return service.TenantDatabaseName
+// }
