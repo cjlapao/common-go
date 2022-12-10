@@ -17,6 +17,8 @@ import (
 	"github.com/cjlapao/common-go/language"
 )
 
+var MaxUploadSize = int64(1 * 1024 * 1024) // 1mb in memory
+
 // DownloadFile Downloads a file from a url
 func DownloadFile(url string, filepath string) error {
 	resp, err := http.Get(url)
@@ -189,4 +191,35 @@ func JoinUrl(element ...string) string {
 	}
 
 	return strings.ReplaceAll(base, "//", "/")
+}
+
+func GetFormFile(request *http.Request, fileName string) (io.Reader, error) {
+	contentType := ""
+	if request.Header.Get("Content-Type") != "" {
+		contentType = request.Header.Get("Content-Type")
+	}
+	if request.Header.Get("content-type") != "" {
+		contentType = request.Header.Get("content-type")
+	}
+
+	if contentType == "" {
+		return nil, errors.New("unknown content type")
+	}
+
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		if request.MultipartForm == nil {
+			err := request.ParseMultipartForm(MaxUploadSize)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if file, _, err := request.FormFile(fileName); err != nil {
+			return nil, err
+		} else {
+			return file, nil
+		}
+	} else {
+		return request.Body, nil
+	}
 }

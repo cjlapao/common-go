@@ -6,6 +6,7 @@ require (
 	github.com/cjlapao/common-go-cryptorand v0.0.4
 	github.com/cjlapao/common-go-identity v0.0.3
 	github.com/fatih/color v1.13.0
+	github.com/go-redis/redis/v8 v8.11.5
 	github.com/pascaldekloe/jwt v1.12.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.1
@@ -13,7 +14,9 @@ require (
 )
 
 require (
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
