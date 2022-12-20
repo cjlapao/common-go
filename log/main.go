@@ -142,7 +142,6 @@ func (l *Logger) WithWarning() *Logger {
 }
 
 func (l *Logger) WithTimestamp() *Logger {
-	println("setting the withtimesramp")
 	for _, logger := range l.Loggers {
 		logger.UseTimestamp(true)
 	}

@@ -71,7 +71,12 @@ func Get(v ...int) *Version {
 }
 
 func (v *Version) String() string {
-	return fmt.Sprint(v.Major) + "." + fmt.Sprint(v.Minor) + "." + fmt.Sprint(v.Build) + "." + fmt.Sprint(v.Rev)
+	if v.Rev > 0 {
+		return fmt.Sprint(v.Major) + "." + fmt.Sprint(v.Minor) + "." + fmt.Sprint(v.Build) + "." + fmt.Sprint(v.Rev)
+
+	} else {
+		return fmt.Sprint(v.Major) + "." + fmt.Sprint(v.Minor) + "." + fmt.Sprint(v.Build)
+	}
 }
 
 func FromString(ver string) (*Version, error) {

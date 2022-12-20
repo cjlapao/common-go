@@ -1,6 +1,7 @@
 package http_helper
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -160,6 +161,7 @@ func MapRequestBody(request *http.Request, dest interface{}) error {
 	}
 
 	bodyArr, err := ioutil.ReadAll(request.Body)
+	request.Body = io.NopCloser(bytes.NewBuffer(bodyArr))
 	if err != nil {
 		return err
 	}
