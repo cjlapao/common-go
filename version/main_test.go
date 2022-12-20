@@ -131,7 +131,7 @@ func TestToString(t *testing.T) {
 	//Assert
 	assert.NotNilf(t, v, "Version should not be null")
 	assert.Nilf(t, err, "Error should be nil")
-	assert.Equalf(t, "1.1.1.0", v.String(), "ToString should be equal to 1.1.1.0")
+	assert.Equalf(t, "1.1.1", v.String(), "ToString should be equal to 1.1.1")
 }
 
 func TestEmptyGet(t *testing.T) {
