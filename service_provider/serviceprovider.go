@@ -13,7 +13,7 @@ import (
 type ServiceProvider struct {
 	Configuration *configuration.ConfigurationService
 	Version       *version.Version
-	Logger        *log.Logger
+	Logger        *log.LoggerService
 }
 
 var globalProviderContainer *ServiceProvider

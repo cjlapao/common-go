@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/cjlapao/common-go-cryptorand v0.0.4
-	github.com/cjlapao/common-go-logger v0.0.1
+	github.com/cjlapao/common-go-logger v0.0.2
 	github.com/fatih/color v1.14.1
 	github.com/pascaldekloe/jwt v1.12.0
 	github.com/pkg/errors v0.9.1

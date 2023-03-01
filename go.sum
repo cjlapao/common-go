@@ -1,7 +1,7 @@
 github.com/cjlapao/common-go-cryptorand v0.0.4 h1:M4hBZlxXJJ4yY3itQzDCGYJH0rmXYd1nOa8T97EPPpc=
 github.com/cjlapao/common-go-cryptorand v0.0.4/go.mod h1:gUG7Bso/ZDD8tOoVmMvaYWMsglfAO9eg+p74OQH7Z2w=
-github.com/cjlapao/common-go-logger v0.0.1 h1:/cdn57Pv0xDGWBrYGRhPRWOjoB87Wu0SUDYUf3zjjn0=
-github.com/cjlapao/common-go-logger v0.0.1/go.mod h1:bF2s2y2as4Fwz2Ox3QTkWw1Y02a07jX5ey8smY5inrU=
+github.com/cjlapao/common-go-logger v0.0.2 h1:6MBpTjxKIiM1SvEIMNgkYczzzjUZK68MVbgReVa6Euc=
+github.com/cjlapao/common-go-logger v0.0.2/go.mod h1:bF2s2y2as4Fwz2Ox3QTkWw1Y02a07jX5ey8smY5inrU=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
