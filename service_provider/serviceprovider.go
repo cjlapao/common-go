@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"strings"
 
+	log "github.com/cjlapao/common-go-logger"
 	"github.com/cjlapao/common-go/configuration"
 	"github.com/cjlapao/common-go/constants"
-	"github.com/cjlapao/common-go/log"
 	"github.com/cjlapao/common-go/version"
 )
 

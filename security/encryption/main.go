@@ -9,7 +9,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 
-	"github.com/cjlapao/common-go/log"
+	log "github.com/cjlapao/common-go-logger"
 )
 
 var logger = log.Get()
