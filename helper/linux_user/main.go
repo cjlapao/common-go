@@ -66,11 +66,11 @@ func Get(userName string) (*LinuxUser, error) {
 		return nil, errors.New("user does not exist")
 	}
 
-	if output == "" {
+	if output.GetAllOutputs() == "" {
 		return nil, errors.New("user does not exist")
 	}
 
-	user, err := Marshal(output)
+	user, err := Marshal(output.GetAllOutputs())
 
 	if err != nil {
 		return nil, err
@@ -125,7 +125,7 @@ func Create(userName string, userId int, options ...LinuxUserCreateOptions) erro
 		return fmt.Errorf("there was an error creating user %v with id %v, err %v", userName, userId, err.Error())
 	}
 
-	if strings.ContainsAny(output, "already exists") {
+	if strings.ContainsAny(output.GetAllOutputs(), "already exists") {
 		return fmt.Errorf("there was an error creating user %v with id %v, user already exists", userName, userId)
 	}
 

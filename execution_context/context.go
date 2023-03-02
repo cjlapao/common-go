@@ -5,8 +5,6 @@ import (
 	"strings"
 
 	cryptorand "github.com/cjlapao/common-go-cryptorand"
-	"github.com/cjlapao/common-go-identity/authorization_context"
-	"github.com/cjlapao/common-go-identity/interfaces"
 	"github.com/cjlapao/common-go/cache"
 	"github.com/cjlapao/common-go/cache/jwt_token_cache"
 	"github.com/cjlapao/common-go/configuration"
@@ -19,17 +17,15 @@ var contextService *Context
 
 // Context entity
 type Context struct {
-	Configuration       *configuration.ConfigurationService
-	Services            *service_provider.ServiceProvider
-	Caches              *cache.CacheService
-	TokenCache          *jwt_token_cache.JwtTokenCacheProvider
-	Authorization       *authorization_context.AuthorizationContext
-	UserDatabaseAdapter interfaces.UserContextAdapter
-	CorrelationId       string
-	Environment         string
-	IsDevelopment       bool
-	Debug               bool
-	Init                func() error
+	Configuration *configuration.ConfigurationService
+	Services      *service_provider.ServiceProvider
+	Caches        *cache.CacheService
+	TokenCache    *jwt_token_cache.JwtTokenCacheProvider
+	CorrelationId string
+	Environment   string
+	IsDevelopment bool
+	Debug         bool
+	Init          func() error
 }
 
 func New() (*Context, error) {
@@ -97,18 +93,6 @@ func InitNewContext(init func() error) (*Context, error) {
 	}
 
 	return contextService, nil
-}
-
-func (c *Context) WithDefaultAuthorization() *Context {
-	// Authorization Context
-	contextService.Authorization = authorization_context.New()
-	return c
-}
-
-func (c *Context) WithAuthorization(options authorization_context.AuthorizationOptions) *Context {
-	// Authorization Context
-	contextService.Authorization = authorization_context.New().WithOptions(options)
-	return c
 }
 
 func (c *Context) Refresh() *Context {

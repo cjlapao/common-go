@@ -22,11 +22,11 @@ func Status(svcName string) LinuxServiceState {
 		return LinuxServiceErrored
 	}
 
-	if strings.Contains(output, "is not running") {
+	if strings.Contains(output.GetAllOutputs(), "is not running") {
 		return LinuxServiceStopped
 	}
 
-	if strings.Contains(output, "is running") {
+	if strings.Contains(output.GetAllOutputs(), "is running") {
 		return LinuxServiceRunning
 	}
 
