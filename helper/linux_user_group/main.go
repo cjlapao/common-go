@@ -57,11 +57,11 @@ func Get(groupName string) (*LinuxUserGroup, error) {
 		return nil, errors.New("group does not exists")
 	}
 
-	if output.GetAllOutputs() == "" {
+	if output == "" {
 		return nil, errors.New("group does not exists")
 	}
 
-	group, err := Marshal(output.GetAllOutputs())
+	group, err := Marshal(output)
 
 	if err != nil {
 		return nil, err
@@ -90,7 +90,7 @@ func Create(groupName string, groupId int) error {
 		return fmt.Errorf("there was an error creating group %v with id %v, err %v", groupName, groupId, err.Error())
 	}
 
-	if strings.ContainsAny(output.GetAllOutputs(), "already exists") {
+	if strings.ContainsAny(output, "already exists") {
 		return fmt.Errorf("there was an error creating group %v with id %v, group already exists", groupName, groupId)
 	}
 

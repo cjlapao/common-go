@@ -4,7 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 
-	log "github.com/cjlapao/common-go-logger"
+	"github.com/cjlapao/common-go/log"
 )
 
 var logger = log.Get()

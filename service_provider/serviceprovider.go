@@ -4,16 +4,16 @@ import (
 	"net/http"
 	"strings"
 
-	log "github.com/cjlapao/common-go-logger"
 	"github.com/cjlapao/common-go/configuration"
 	"github.com/cjlapao/common-go/constants"
+	"github.com/cjlapao/common-go/log"
 	"github.com/cjlapao/common-go/version"
 )
 
 type ServiceProvider struct {
 	Configuration *configuration.ConfigurationService
 	Version       *version.Version
-	Logger        *log.LoggerService
+	Logger        *log.Logger
 }
 
 var globalProviderContainer *ServiceProvider

@@ -8,8 +8,7 @@ import (
 	"os/exec"
 )
 
-func Execute(command string, args ...string) (ExecuteResponse, error) {
-	result := ExecuteResponse{}
+func Execute(command string, args ...string) (string, error) {
 	cmd := exec.Command(command, args...)
 	var stdOut, stdIn bytes.Buffer
 
@@ -18,53 +17,40 @@ func Execute(command string, args ...string) (ExecuteResponse, error) {
 	cmd.Stdin = &stdIn
 
 	if err := cmd.Run(); err != nil {
-		result.StdErr = stdOut.String()
-		result.StdOut = stdOut.String()
-		result.ErrorCode = err.Error()
-		return result, err
+		return stdOut.String(), err
 	}
 
-	result.StdErr = stdOut.String()
-	result.StdOut = stdOut.String()
-	return result, nil
+	return stdOut.String(), nil
 }
 
-func ExecuteWithNoOutput(command string, args ...string) (ExecuteResponse, error) {
-	result := ExecuteResponse{}
+func ExecuteWithNoOutput(command string, args ...string) (string, error) {
 	cmd := exec.Command(command, args...)
-	var stdOut, stdIn, stdErr bytes.Buffer
+	var stdOut, stdIn bytes.Buffer
 
 	cmd.Stdout = &stdOut
-	cmd.Stderr = &stdErr
+	cmd.Stderr = &stdIn
 	cmd.Stdin = &stdIn
 
 	if err := cmd.Run(); err != nil {
-		result.StdErr = stdErr.String()
-		result.StdOut = stdOut.String()
-		return result, err
+		return stdOut.String(), err
 	}
 
-	result.StdErr = stdErr.String()
-	result.StdOut = stdOut.String()
-	return result, nil
+	return stdOut.String(), nil
 }
 
-func ExecuteAndWatch(command string, args ...string) (ExecuteResponse, error) {
-	result := ExecuteResponse{}
+func ExecuteAndWatch(command string, args ...string) (string, error) {
 	ctx, cancel := context.WithCancel(context.TODO())
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, command, args...)
-	var stdOut, stdErr, stdIn bytes.Buffer
+	var stdOut, stdIn bytes.Buffer
 
 	cmd.Stdout = io.MultiWriter(os.Stdout, &stdOut)
-	cmd.Stderr = io.MultiWriter(os.Stderr, &stdErr)
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stdOut)
 	cmd.Stdin = &stdIn
 
 	if err := cmd.Start(); err != nil {
-		result.StdErr = stdErr.String()
-		result.StdOut = stdOut.String()
-		return result, err
+		return stdOut.String(), err
 	}
 
 	go func() {
@@ -72,12 +58,8 @@ func ExecuteAndWatch(command string, args ...string) (ExecuteResponse, error) {
 	}()
 
 	if err := cmd.Wait(); err != nil {
-		result.StdErr = stdErr.String()
-		result.StdOut = stdOut.String()
-		return result, err
+		return stdOut.String(), err
 	}
 
-	result.StdErr = stdErr.String()
-	result.StdOut = stdOut.String()
-	return result, nil
+	return stdOut.String(), nil
 }
