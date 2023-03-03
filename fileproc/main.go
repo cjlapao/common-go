@@ -1,7 +1,7 @@
 package fileproc
 
 import (
-	log "github.com/cjlapao/common-go-logger"
+	log "github.com/cjlapao/common-go/log"
 )
 
 var logger = log.Get()
