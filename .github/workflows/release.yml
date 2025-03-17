@@ -157,7 +157,7 @@ jobs:
       - name: Get version
         id: get_version
         run: |
-          VERSION=$(cat VERSION)
+          VERSION=$(cat VERSION_FILE)
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
       - name: Announce on discord
         id: announce_discord
