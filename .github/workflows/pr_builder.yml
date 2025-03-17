@@ -13,6 +13,9 @@ jobs:
   build:
     name: PR Build and Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     strategy:
       fail-fast: false
       matrix:
@@ -68,6 +71,7 @@ jobs:
         with:
           recreate: true
           path: code-coverage-results.md
+          GITHUB_TOKEN: ${{ secrets.PAT }}
 
       - name: Run Gosec Security Scanner
         uses: securego/gosec@master
