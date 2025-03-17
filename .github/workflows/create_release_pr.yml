@@ -50,7 +50,7 @@ jobs:
           git config --global user.email "cjlapao@gmail.com"
           git config --global user.name "cjlapao"
 
-          NEW_VERSION=$(./.github/scripts/increment_version.sh -t ${{ inputs.version }} -f VERSION)
+          NEW_VERSION=$(./.github/scripts/increment_version.sh -t ${{ inputs.version }} -f VERSION_FILE)
           echo "$NEW_VERSION" > ./VERSION_FILE
 
           git checkout -b release/"$NEW_VERSION"
