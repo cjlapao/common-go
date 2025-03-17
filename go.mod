@@ -1,6 +1,6 @@
 module github.com/cjlapao/common-go
 
-go 1.19
+go 1.23
 
 require (
 	github.com/cjlapao/common-go-cryptorand v0.0.6
