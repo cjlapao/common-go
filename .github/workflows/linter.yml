@@ -44,7 +44,7 @@ jobs:
         env:
           DEFAULT_BRANCH: origin/${{ github.head_ref}}
           FILTER_REGEX_EXCLUDE: bin/**/*
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT }}
           VALIDATE_ALL_CODEBASE: true
           VALIDATE_JSCPD: false
           VALIDATE_GO: false
