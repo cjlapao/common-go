@@ -1,0 +1,51 @@
+name: Lint Codebase
+
+on:
+  pull_request:
+    branches: [main, owner_review]
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  packages: read
+  statuses: write
+
+jobs:
+  lint:
+    if: false
+    name: Lint Codebase
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go 1.23.x
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.23.x'
+          cache-dependency-path: ${{ github.workspace }}/go.sum
+
+      - name: Clean and Tidy
+        working-directory: ${{ github.workspace }}
+        run: |
+          go clean -modcache
+          go mod tidy
+
+      - name: Build
+        working-directory: ${{ github.workspace }}
+        run: go build -v ./...
+
+      - name: Lint Codebase
+        id: super-linter
+        uses: super-linter/super-linter/slim@v6.0.0
+        env:
+          DEFAULT_BRANCH: origin/${{ github.head_ref}}
+          FILTER_REGEX_EXCLUDE: bin/**/*
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATE_ALL_CODEBASE: true
+          VALIDATE_JSCPD: false
+          VALIDATE_GO: false
+          VALIDATE_CHECKOV: false

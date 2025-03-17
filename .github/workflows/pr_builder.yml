@@ -2,7 +2,12 @@ name: PR Builder
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, owner_review]
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
 
 jobs:
   build:
@@ -20,6 +25,11 @@ jobs:
         with:
           go-version: 1.23
 
+      - name: Install dependencies
+        working-directory: ${{ github.workspace }}/src
+        run: |
+          go get .
+
       - name: Build
         run: go build -v ./...
 
@@ -31,6 +41,12 @@ jobs:
 
           go test -coverprofile coverage.txt -covermode count -v ./...
           gocov convert coverage.txt | gocov-xml > cobertura-coverage.xml
+
+      - name: Upload Code Coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-coverage
+          path: ${{ github.workspace }}/cobertura-coverage.xml
 
       - name: Code Coverage Summary Report
         uses: irongut/CodeCoverageSummary@v1.3.0
@@ -46,7 +62,20 @@ jobs:
           thresholds: '40 80'
 
       - name: Add Coverage PR Comment
-        uses: marocchino/sticky-pull-request-comment@v2
+        uses: marocchino/sticky-pull-request-comment@v2.9.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
         with:
           recreate: true
           path: code-coverage-results.md
+
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          args: '-no-fail -fmt sarif -out results.sarif ./...'
+
+      - name: Upload SARIF file
+        if: false
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif

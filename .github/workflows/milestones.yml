@@ -1,0 +1,27 @@
+name: Assign Milestone
+
+on:
+  issues:
+    types: [opened, reopened]
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  assign-milestone:
+    if: ${{ github.event.pull_request.draft == false && !startsWith(github.event.pull_request, 'BUMP')&& !startsWith(github.event.pull_request, 'Bump') && !startsWith(github.head_ref, 'release/') && github.event_name == 'pull_request'}}
+    name: Assign Milestone
+    env:
+      repo: ${{ github.head_ref }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: git checkout
+        uses: actions/checkout@v4
+      - name: Assign Milestone
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
+        run: |
+          gh extension install valeriobelli/gh-milestone
+          NEXT_MILESTONE=$(gh milestone list --json title --jq ".[-1].title")
+          if [ -n "$NEXT_MILESTONE" ]; then
+              gh pr edit  ${{ env.repo }} --milestone "$NEXT_MILESTONE"
+          fi
